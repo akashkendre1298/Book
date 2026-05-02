@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="BookTracker.Api/BookTracker.Api.csproj" />
+  <Project Path="BookTracker.Tests/BookTracker.Tests.csproj" />
+</Solution>

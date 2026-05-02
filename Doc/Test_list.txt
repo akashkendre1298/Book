@@ -1,0 +1,294 @@
+# 🧪 Book Collection Tracker - Test Plan (TDD)
+
+This document defines all test cases required to fully satisfy the KPI requirements.
+
+It is divided into:
+- ⚙️ Backend (Unit + API)
+- 🎨 Frontend (UI + Component)
+- 🔗 Integration / E2E (Full Flow)
+
+---
+
+# ⚙️ BACKEND TEST CASES
+
+## 🔐 Authentication
+
+### Unit Tests
+- Hash password before saving
+- Compare hashed password correctly
+- Validate email format
+- Validate password strength
+
+### API Tests
+- Register user with valid data → 201
+- Register duplicate email → 409
+- Register invalid email → 400
+- Register weak password → 400
+- Login valid credentials → 200
+- Login wrong password → 401
+- Login non-existing user → 401/404
+- Access protected route with token → 200
+- Access protected route without token → 401
+- Logout clears session/token
+
+### Edge Cases
+- Email case normalization
+- Empty fields
+- Large payload input
+
+---
+
+## 📚 Book Management
+
+### Unit Tests
+- Validate required fields (title, author)
+- Validate ISBN format
+- Validate publication year range
+- Handle optional fields
+
+### API Tests
+- Create book (valid) → 201
+- Create book (missing title) → 400
+- Create book (missing author) → 400
+- Get all books → 200
+- Get single book → 200
+- Update book → 200
+- Update non-existing book → 404
+- Delete book → 200
+- Delete non-existing book → 404
+
+### File Upload
+- Upload valid image → success
+- Upload invalid file → 400
+- Upload large file → rejected
+
+### Edge Cases
+- Duplicate ISBN
+- Very long text
+- Special characters
+
+---
+
+## 📖 Reading Status & Progress
+
+### Unit Tests
+- Valid status transitions
+- Progress ≤ total pages
+- Progress ≥ 0
+- Rating between 1–5
+
+### API Tests
+- Update reading status → 200
+- Update progress → 200
+- Invalid progress → 400
+- Mark as completed → stores date
+- Add rating → 200
+- Invalid rating → 400
+- Add review → 200
+
+### Edge Cases
+- Progress = 0
+- Progress = total pages
+- Repeated updates
+
+---
+
+## 🔍 Search & Filtering
+
+### Unit Tests
+- Filter by title
+- Filter by author
+- Filter by ISBN
+- Filter by genre
+- Filter by status
+- Filter by rating
+- Sorting logic (title, author, rating, date)
+- AND filtering logic
+- OR filtering logic
+
+### API Tests
+- Search returns correct results
+- Empty search → returns all
+- Invalid filter → handled
+
+### Edge Cases
+- Case-insensitive search
+- Partial match search
+- Special characters
+- Large dataset
+
+---
+
+## 📊 Statistics & Dashboard
+
+### Unit Tests
+- Total books calculation
+- Read books count
+- Pages read calculation
+- Genre distribution
+- Rating distribution
+- Goal progress calculation
+
+### API Tests
+- Fetch dashboard stats → 200
+- Set reading goal → 200
+- Invalid goal → 400
+- Export CSV → correct format
+
+### Edge Cases
+- Zero books
+- Large dataset
+
+---
+
+## 🐳 Docker & System
+
+- App starts with docker-compose
+- DB connection success
+- DB persists after restart
+- API works inside container
+- Missing env variables handled
+
+---
+
+# 🎨 FRONTEND TEST CASES
+
+## 🔐 Authentication UI
+
+- Register form renders
+- Login form renders
+- Validation messages shown
+- Invalid login shows error
+- Successful login redirects
+- Logout redirects
+
+---
+
+## 📚 Book UI
+
+- Book form renders
+- Required field validation UI
+- Book card displays:
+  - Cover
+  - Title
+  - Author
+  - Rating
+- Grid view renders
+- List view renders
+- Edit form pre-filled
+- Delete updates UI
+- Image preview works
+
+---
+
+## 📖 Reading UI
+
+- Status selector updates UI
+- Progress bar updates
+- Rating UI updates
+- Review saved & displayed
+- Completion date shown
+
+---
+
+## 🔍 Search & Filter UI
+
+- Search updates results
+- Filter dropdown works
+- Sorting updates order
+- Multiple filters work
+- Empty state shown
+
+---
+
+## 📊 Dashboard UI
+
+- Stats cards render
+- Charts render
+- Goal progress updates
+- CSV export triggers download
+
+---
+
+## 📱 Responsive UI
+
+- Grid adapts to mobile
+- Book details readable
+- Buttons touch-friendly
+- No overflow issues
+- Tablet layout works
+
+---
+
+# 🔗 INTEGRATION / E2E TEST CASES
+
+## 🔐 Auth Flow
+
+- Register → Login → Dashboard access
+- Login → Refresh → Session persists
+- Logout → Access blocked
+
+---
+
+## 📚 Book Flow
+
+- Add book → appears in list
+- Edit book → updates everywhere
+- Delete book → removed everywhere
+
+---
+
+## 📖 Reading Flow
+
+- Change status → shelf updates
+- Update progress → UI updates
+- Mark as read → dashboard updates
+
+---
+
+## 🔍 Search Flow
+
+- Add book → searchable
+- Apply filters → correct results
+- Combine filters → correct logic
+
+---
+
+## 📊 Dashboard Flow
+
+- Add books → stats update
+- Change status → stats update
+- Progress update → pages update
+- Export CSV → correct data
+
+---
+
+## 🐳 Full System
+
+- Run docker → app works
+- Restart container → data persists
+- Full flow works inside Docker
+
+---
+
+# ✅ Summary
+
+| Layer        | Coverage |
+|-------------|--------|
+| Backend      | Logic, API, DB |
+| Frontend     | UI, UX |
+| Integration  | End-to-end flows |
+
+---
+
+# 🚀 Notes
+
+- All KPIs are **pass/fail**
+- Missing even 1 feature = incomplete
+- Follow TDD order:
+  1. Backend Unit
+  2. Backend API
+  3. Frontend
+  4. E2E
+
+---
