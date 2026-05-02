@@ -1,124 +1,103 @@
-# TDD Test Execution Log - Backend (.NET)
+# 🧪 TDD Execution Log: Book Collection Tracker (.NET)
 
-## Phase: RED (Initial Failing Tests)
-Date: 2026-05-02
-Technology: ASP.NET Core, xUnit, FluentAssertions
-
----
-
-### 🔐 1. Authentication
-#### Unit Tests
-- [FAIL] Hash password before saving
-- [FAIL] Compare hashed password correctly
-- [FAIL] Validate email format
-- [FAIL] Validate password strength
-#### API Tests
-- [FAIL] Register valid data (201)
-- [FAIL] Register duplicate email (409)
-- [FAIL] Register invalid email (400)
-- [FAIL] Register weak password (400)
-- [FAIL] Login valid credentials (200)
-- [FAIL] Login wrong password (401)
-- [FAIL] Login non-existing user (401/404)
-- [FAIL] Access protected route with token (200)
-- [FAIL] Access protected route without token (401)
-- [FAIL] Logout clears session/token
-#### Edge Cases
-- [FAIL] Email case normalization
-- [FAIL] Empty fields
-- [FAIL] Large payload input
+> [!IMPORTANT]
+> **Current Phase**: 🔴 **RED** (Initial Failing Tests)  
+> **Last Updated**: 2026-05-02  
+> **Technology Stack**: ASP.NET Core 10, xUnit, FluentAssertions, Moq, PostgreSQL.
 
 ---
 
-### 📚 2. Book Management
-#### Unit Tests
-- [FAIL] Validate required fields (title, author)
-- [FAIL] Validate ISBN format
-- [FAIL] Validate publication year range
-- [FAIL] Handle optional fields
-#### API Tests
-- [FAIL] Create book (valid) (201)
-- [FAIL] Create book (missing title) (400)
-- [FAIL] Create book (missing author) (400)
-- [FAIL] Get all books (200)
-- [FAIL] Get single book (200)
-- [FAIL] Update book (200)
-- [FAIL] Update non-existing book (404)
-- [FAIL] Delete book (200)
-- [FAIL] Delete non-existing book (404)
-#### File Upload
-- [FAIL] Upload valid image
-- [FAIL] Upload invalid file (400)
-- [FAIL] Upload large file (rejected)
-#### Edge Cases
-- [FAIL] Duplicate ISBN
-- [FAIL] Very long text
-- [FAIL] Special characters
+## 🔐 1. Authentication
+*Focus: Security, Identity, and Access Control.*
+
+| Status | Test Category | Test Case | Expected Outcome |
+| :---: | :--- | :--- | :--- |
+| 🔴 | **Unit** | Password Hashing | Secure one-way hash using BCrypt |
+| 🔴 | **Unit** | Password Verification | Correctly matches hash to plain text |
+| 🔴 | **Unit** | Email Validation | Rejects non-RFC compliant emails |
+| 🔴 | **Unit** | Password Strength | Minimum 8 chars, mixed case, symbols |
+| 🔴 | **API** | User Registration | 201 Created on valid input |
+| 🔴 | **API** | Duplicate Email Check | 409 Conflict if email exists |
+| 🔴 | **API** | Invalid Login | 401 Unauthorized for wrong credentials |
+| 🔴 | **API** | Protected Access | 401 Unauthorized without Bearer token |
+| 🔴 | **API** | Session Logout | Token/Session invalidation |
+| 🔴 | **Edge** | Case Normalization | Email `User@Ex.com` -> `user@ex.com` |
 
 ---
 
-### 📖 3. Reading Status & Progress
-#### Unit Tests
-- [FAIL] Valid status transitions
-- [FAIL] Progress <= total pages
-- [FAIL] Progress >= 0
-- [FAIL] Rating between 1–5
-#### API Tests
-- [FAIL] Update reading status (200)
-- [FAIL] Update progress (200)
-- [FAIL] Invalid progress (400)
-- [FAIL] Mark as completed (stores date)
-- [FAIL] Add rating (200)
-- [FAIL] Invalid rating (400)
-- [FAIL] Add review (200)
-#### Edge Cases
-- [FAIL] Progress = 0
-- [FAIL] Progress = total pages
-- [FAIL] Repeated updates
+## 📚 2. Book Management
+*Focus: Core CRUD operations and data integrity.*
+
+| Status | Test Category | Test Case | Expected Outcome |
+| :---: | :--- | :--- | :--- |
+| 🔴 | **Unit** | Required Fields | Fails if Title/Author is null |
+| 🔴 | **Unit** | ISBN Formatting | Supports ISBN-10 and ISBN-13 |
+| 🔴 | **Unit** | Pub Year Range | Rejects future years or pre-1450 |
+| 🔴 | **API** | Create Book | 201 Created with returned ID |
+| 🔴 | **API** | Update Metadata | 200 OK with reflected changes |
+| 🔴 | **API** | Delete Book | 204 No Content; removed from DB |
+| 🔴 | **File** | Cover Upload | Validates image MIME types (JPEG/PNG) |
+| 🔴 | **File** | Payload Size | Rejects uploads > 5MB |
+| 🔴 | **Edge** | Duplicate ISBN | Prevents multiple entries for same user |
 
 ---
 
-### 🔍 4. Search & Filtering
-#### Unit Tests
-- [FAIL] Filter by title/author/ISBN/genre/status/rating
-- [FAIL] Sorting logic (title, author, rating, date)
-- [FAIL] AND/OR filtering logic
-#### API Tests
-- [FAIL] Search returns correct results
-- [FAIL] Empty search returns all
-- [FAIL] Invalid filter handled
-#### Edge Cases
-- [FAIL] Case-insensitive search
-- [FAIL] Partial match search
-- [FAIL] Special characters
-- [FAIL] Large dataset
+## 📖 3. Reading Status & Progress
+*Focus: Real-time progress tracking and business rules.*
+
+| Status | Test Category | Test Case | Expected Outcome |
+| :---: | :--- | :--- | :--- |
+| 🔴 | **Unit** | Progress Constraint | `current_page` cannot exceed `total_pages` |
+| 🔴 | **Unit** | Rating Range | Validates stars are strictly 1–5 |
+| 🔴 | **API** | Status Transition | Updates from 'Want to Read' to 'Reading' |
+| 🔴 | **API** | Completion Auto-Date | Sets `finish_date` when status is 'Read' |
+| 🔴 | **Edge** | Boundary Progress | Handles `page 0` and `page total` |
 
 ---
 
-### 📊 5. Statistics & Dashboard
-#### Unit Tests
-- [FAIL] Total books calculation
-- [FAIL] Read books count
-- [FAIL] Pages read calculation
-- [FAIL] Genre/Rating distribution
-- [FAIL] Goal progress calculation
-#### API Tests
-- [FAIL] Fetch dashboard stats (200)
-- [FAIL] Set reading goal (200)
-- [FAIL] Invalid goal (400)
-- [FAIL] Export CSV (correct format)
-#### Edge Cases
-- [FAIL] Zero books
-- [FAIL] Large dataset
+## 🔍 4. Search & Filtering
+*Focus: Performance and complex query logic.*
+
+| Status | Test Category | Test Case | Expected Outcome |
+| :---: | :--- | :--- | :--- |
+| 🔴 | **Unit** | AND Logic | Combining Genre + Rating filters |
+| 🔴 | **Unit** | OR Logic | Combining multiple Status filters |
+| 🔴 | **Unit** | Sorting | Correct order for Rating/DateAdded |
+| 🔴 | **API** | Search Query | Case-insensitive matching on Title/Author |
+| 🔴 | **API** | Empty Search | Returns all books (unfiltered) |
+| 🔴 | **Edge** | Special Characters | Handles search for `C#`, `O'Reilly`, etc. |
 
 ---
 
-### 🐳 6. Docker & System
-- [FAIL] App starts with docker-compose
-- [FAIL] DB connection success
-- [FAIL] DB persists after restart
-- [FAIL] API works inside container
-- [FAIL] Missing env variables handled
+## 📊 5. Statistics & Dashboard
+*Focus: Data aggregation and reporting.*
+
+| Status | Test Category | Test Case | Expected Outcome |
+| :---: | :--- | :--- | :--- |
+| 🔴 | **Unit** | Stats Aggregator | Correctly sums pages/counts from dataset |
+| 🔴 | **Unit** | Goal Tracking | Calculates % progress against yearly goal |
+| 🔴 | **API** | Dashboard Data | 200 OK with full statistics JSON |
+| 🔴 | **API** | CSV Export | Valid RFC-4180 CSV binary stream |
+| 🔴 | **Edge** | Zero Dataset | Returns valid structure with 0 counts |
 
 ---
-Next Step: Implement C# xUnit tests for ALL remaining backend cases.
+
+## 🐳 6. System & Infrastructure
+*Focus: Deployment and environmental stability.*
+
+| Status | Test Category | Test Case | Expected Outcome |
+| :---: | :--- | :--- | :--- |
+| 🔴 | **System** | Docker Startup | `docker-compose up` results in healthy state |
+| 🔴 | **System** | Data Persistence | Volume mounts retain data after restart |
+| 🔴 | **System** | Env Validation | Fails gracefully if DB connection string missing |
+
+---
+
+## 🚀 Execution Summary
+- **Total Tests**: 47
+- **Passed**: 0
+- **Failed**: 47
+- **Pending**: 0
+
+> [!TIP]
+> To move to **GREEN**, start with the `AuthService` implementation and verify against the `AuthTests` suite.
