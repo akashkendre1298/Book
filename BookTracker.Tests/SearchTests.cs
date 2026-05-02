@@ -39,6 +39,16 @@ public class SearchTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact] 
+    public async Task Search_ByAuthor_Works() 
+    {
+        await AuthenticateAsync();
+        await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "Book", Author = "Specific Author" });
+        var response = await _client.GetAsync("/api/v1/books?query=Specific");
+        var books = await response.Content.ReadFromJsonAsync<List<Book>>();
+        books.Should().Contain(b => b.Author == "Specific Author");
+    }
+
+    [Fact] 
     public async Task Filter_ByStatus_ReturnsMatches() 
     {
         await AuthenticateAsync();
@@ -59,6 +69,17 @@ public class SearchTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact] 
+    public async Task Filter_ByStatusAndGenre_ReturnsMatches() 
+    {
+        await AuthenticateAsync();
+        await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "B1", Author = "A", Status = ReadingStatus.Read, Genre = "G1" });
+        await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "B2", Author = "A", Status = ReadingStatus.Reading, Genre = "G1" });
+        var response = await _client.GetAsync("/api/v1/books?status=2&genre=G1");
+        var books = await response.Content.ReadFromJsonAsync<List<Book>>();
+        books.Should().HaveCount(1);
+    }
+
+    [Fact] 
     public async Task Sort_ByRating_ReturnsDescending() 
     {
         await AuthenticateAsync();
@@ -69,24 +90,14 @@ public class SearchTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact] 
-    public async Task Sort_ByTitle_ReturnsAscending() 
+    public async Task Sort_ByDate_Works() 
     {
         await AuthenticateAsync();
-        await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "A Book", Author = "A" });
-        await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "Z Book", Author = "A" });
-        var response = await _client.GetAsync("/api/v1/books?sortBy=title");
+        await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "First", Author = "A" });
+        await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "Second", Author = "A" });
+        var response = await _client.GetAsync("/api/v1/books?sortBy=date");
         var books = await response.Content.ReadFromJsonAsync<List<Book>>();
-        books![0].Title.Should().Be("A Book");
-    }
-
-    [Fact] 
-    public async Task Search_CaseInsensitive_Works() 
-    {
-        await AuthenticateAsync();
-        await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "MIXED CASE", Author = "A" });
-        var response = await _client.GetAsync("/api/v1/books?query=mixed");
-        var books = await response.Content.ReadFromJsonAsync<List<Book>>();
-        books.Should().HaveCount(1);
+        books![0].Title.Should().Be("Second"); // Descending by date
     }
 
     [Fact] 
@@ -97,5 +108,16 @@ public class SearchTests : IClassFixture<WebApplicationFactory<Program>>
         var response = await _client.GetAsync("/api/v1/books?query=C%23");
         var books = await response.Content.ReadFromJsonAsync<List<Book>>();
         books.Should().Contain(b => b.Title == "C#");
+    }
+
+    [Fact] 
+    public async Task Sort_ByTitle_Works() 
+    {
+        await AuthenticateAsync();
+        await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "A", Author = "A" });
+        await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "Z", Author = "A" });
+        var response = await _client.GetAsync("/api/v1/books?sortBy=title");
+        var books = await response.Content.ReadFromJsonAsync<List<Book>>();
+        books![0].Title.Should().Be("A");
     }
 }

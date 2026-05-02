@@ -69,17 +69,37 @@ public class ReadingTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact] 
+    public async Task UpdateRating_MultipleTimes_Works() 
+    {
+        await AuthenticateAsync();
+        var createResponse = await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "Book", Author = "Author" });
+        var book = await createResponse.Content.ReadFromJsonAsync<Book>();
+        await _client.PatchAsJsonAsync($"/api/v1/books/{book!.Id}/rating", new { rating = 1 });
+        var response = await _client.PatchAsJsonAsync($"/api/v1/books/{book.Id}/rating", new { rating = 5 });
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact] 
     public async Task AutoSet_FinishDate_WhenRead() 
     {
         await AuthenticateAsync();
         var createResponse = await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "Book", Author = "Author", TotalPages = 100 });
         var book = await createResponse.Content.ReadFromJsonAsync<Book>();
-        
-        // Setting progress to 100 should set status to Read
         await _client.PatchAsJsonAsync($"/api/v1/books/{book!.Id}/progress", new { currentPage = 100 });
-        
         var getResponse = await _client.GetAsync($"/api/v1/books/{book.Id}");
         var updatedBook = await getResponse.Content.ReadFromJsonAsync<Book>();
         updatedBook!.Status.Should().Be(ReadingStatus.Read);
+    }
+
+    [Fact] 
+    public async Task Progress_ZeroToHundred_Directly() 
+    {
+        await AuthenticateAsync();
+        var createResponse = await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "Book", Author = "Author", TotalPages = 100, CurrentPage = 0 });
+        var book = await createResponse.Content.ReadFromJsonAsync<Book>();
+        await _client.PatchAsJsonAsync($"/api/v1/books/{book!.Id}/progress", new { currentPage = 100 });
+        var getResponse = await _client.GetAsync($"/api/v1/books/{book.Id}");
+        var updatedBook = await getResponse.Content.ReadFromJsonAsync<Book>();
+        updatedBook!.CurrentPage.Should().Be(100);
     }
 }

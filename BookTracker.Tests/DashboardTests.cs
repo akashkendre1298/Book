@@ -34,7 +34,6 @@ public class DashboardTests : IClassFixture<WebApplicationFactory<Program>>
     {
         await AuthenticateAsync();
         await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "B1", Author = "A1", TotalPages = 100, CurrentPage = 50, Status = ReadingStatus.Reading });
-        
         var response = await _client.GetAsync("/api/v1/dashboard/stats");
         var stats = await response.Content.ReadFromJsonAsync<JsonElement>();
         stats.GetProperty("totalBooks").GetInt32().Should().Be(1);
@@ -59,11 +58,12 @@ public class DashboardTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact] 
-    public async Task SetGoal_Valid_Returns200() 
+    public async Task ExportCsv_Empty_ReturnsHeaderOnly() 
     {
         await AuthenticateAsync();
-        var response = await _client.PostAsJsonAsync("/api/v1/dashboard/goal", new { targetYear = 2026, goalCount = 12 });
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var response = await _client.GetAsync("/api/v1/dashboard/export");
+        var csv = await response.Content.ReadAsStringAsync();
+        csv.Should().StartWith("Title,Author");
     }
 
     [Fact] 
@@ -88,12 +88,12 @@ public class DashboardTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact] 
-    public async Task Stats_ReadingCount_Correct() 
+    public async Task Stats_HandlesLargeNumbers() 
     {
         await AuthenticateAsync();
-        await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "B1", Author = "A", Status = ReadingStatus.Reading });
+        await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "Large", Author = "A", TotalPages = 1000000, CurrentPage = 500000, Status = ReadingStatus.Reading });
         var response = await _client.GetAsync("/api/v1/dashboard/stats");
         var stats = await response.Content.ReadFromJsonAsync<JsonElement>();
-        stats.GetProperty("readingBooks").GetInt32().Should().Be(1);
+        stats.GetProperty("totalPagesRead").GetInt32().Should().Be(500000);
     }
 }

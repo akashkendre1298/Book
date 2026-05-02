@@ -48,12 +48,30 @@ public class BookTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact] 
-    public void ISBN13_Validation_Works() 
+    public void ISBN_WithHyphens_Works() 
     {
         var book = new Book { Title = "T", Author = "A", ISBN = "978-3-16-148410-0" };
         var context = new System.ComponentModel.DataAnnotations.ValidationContext(book);
         var results = new System.Collections.Generic.List<System.ComponentModel.DataAnnotations.ValidationResult>();
         System.ComponentModel.DataAnnotations.Validator.TryValidateObject(book, context, results, true).Should().BeTrue();
+    }
+
+    [Fact] 
+    public void PubYear_Boundary_1450_Passes() 
+    {
+        var book = new Book { Title = "T", Author = "A", PublicationYear = 1450 };
+        var context = new System.ComponentModel.DataAnnotations.ValidationContext(book);
+        var results = new System.Collections.Generic.List<System.ComponentModel.DataAnnotations.ValidationResult>();
+        System.ComponentModel.DataAnnotations.Validator.TryValidateObject(book, context, results, true).Should().BeTrue();
+    }
+
+    [Fact] 
+    public void PubYear_Future_Fails() 
+    {
+        var book = new Book { Title = "T", Author = "A", PublicationYear = 2101 }; // Max 2100 in Range
+        var context = new System.ComponentModel.DataAnnotations.ValidationContext(book);
+        var results = new System.Collections.Generic.List<System.ComponentModel.DataAnnotations.ValidationResult>();
+        System.ComponentModel.DataAnnotations.Validator.TryValidateObject(book, context, results, true).Should().BeFalse();
     }
     #endregion
 
@@ -119,12 +137,10 @@ public class BookTests : IClassFixture<WebApplicationFactory<Program>>
         await AuthenticateAsync();
         var createResponse = await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "Title", Author = "Author" });
         var book = await createResponse.Content.ReadFromJsonAsync<Book>();
-
         var content = new MultipartFormDataContent();
         var fileContent = new ByteArrayContent(new byte[] { 0x01 });
         fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse("image/jpeg");
         content.Add(fileContent, "file", "test.jpg");
-
         var response = await _client.PostAsync($"/api/v1/books/{book!.Id}/cover", content);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
