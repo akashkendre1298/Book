@@ -1,3 +1,4 @@
+// TDD RED Phase: Failing Authentication Tests
 using Xunit;
 using FluentAssertions;
 using Moq;
