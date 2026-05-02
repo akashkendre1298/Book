@@ -12,15 +12,27 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 // Database - Use PostgreSQL in production, In-Memory for dev/testing for now
-if (builder.Environment.IsEnvironment("Testing"))
+if (!builder.Environment.IsEnvironment("Testing"))
 {
-    builder.Services.AddDbContext<AppDbContext>(options =>
-        options.UseInMemoryDatabase("BookTrackerTest"));
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    if (string.IsNullOrEmpty(connectionString))
+    {
+        if (builder.Environment.IsProduction())
+        {
+            Console.WriteLine("CRITICAL: ConnectionStrings:DefaultConnection is missing!");
+            Environment.Exit(1);
+        }
+    }
+    else
+    {
+        builder.Services.AddDbContext<AppDbContext>(options =>
+            options.UseNpgsql(connectionString));
+    }
 }
 else
 {
     builder.Services.AddDbContext<AppDbContext>(options =>
-        options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+        options.UseInMemoryDatabase("BookTrackerTest"));
 }
 
 // Custom Services

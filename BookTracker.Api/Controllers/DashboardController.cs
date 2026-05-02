@@ -56,4 +56,21 @@ public class DashboardController : ControllerBase
         await _context.SaveChangesAsync();
         return Ok(goal);
     }
+
+    [HttpGet("export")]
+    public async Task<IActionResult> ExportCsv()
+    {
+        var books = await _context.Books.Where(b => b.UserId == UserId).ToListAsync();
+        
+        var csv = new System.Text.StringBuilder();
+        csv.AppendLine("Title,Author,ISBN,Genre,Status,CurrentPage,TotalPages,Rating");
+
+        foreach (var book in books)
+        {
+            csv.AppendLine($"{book.Title},{book.Author},{book.ISBN},{book.Genre},{book.Status},{book.CurrentPage},{book.TotalPages},{book.Rating}");
+        }
+
+        var bytes = System.Text.Encoding.UTF8.GetBytes(csv.ToString());
+        return File(bytes, "text/csv", "books.csv");
+    }
 }

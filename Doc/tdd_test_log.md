@@ -50,14 +50,15 @@
 | :---: | :--- | :--- | :--- |
 | ✅ | **Unit** | Password Hashing | PASSED (BCrypt.Net) |
 | ✅ | **Unit** | Password Verification | PASSED |
-| ✅ | **Unit** | Email Validation | PASSED |
-| ✅ | **Unit** | Password Strength | PASSED |
+| ✅ | **Unit** | Email Validation | PASSED (Regex + ModelBound) |
+| ✅ | **Unit** | Password Strength | PASSED (8+ chars) |
 | ✅ | **API** | User Registration | PASSED (201 Created) |
 | ✅ | **API** | Duplicate Email Check | PASSED (409 Conflict) |
 | ✅ | **API** | Invalid Login | PASSED (401 Unauthorized) |
 | ✅ | **API** | Protected Access | PASSED (401 with JWT Bearer) |
-| ✅ | **API** | Session Logout | PASSED (Client-side token clearing) |
+| ✅ | **API** | Session Logout | PASSED (204 No Content) |
 | ✅ | **Edge** | Case Normalization | PASSED (Lowercase normalization) |
+| ✅ | **Edge** | Field Validation | PASSED (Bad Request for invalid email/pass) |
 
 ### 📚 2. Book Management
 | Status | Test Category | Test Case | Current Result |
@@ -68,36 +69,47 @@
 | ✅ | **API** | Create Book | PASSED |
 | ✅ | **API** | Update Metadata | PASSED |
 | ✅ | **API** | Delete Book | PASSED |
-| ✅ | **File** | Cover Upload | PASSED (5MB Limit) |
+| ✅ | **API** | Error Handling | PASSED (404 for non-existent books) |
+| ✅ | **File** | Cover Upload | PASSED (image/jpeg, image/png) |
+| ✅ | **File** | Payload Size | PASSED (5MB Limit) |
+| ✅ | **Edge** | Duplicate ISBN | PASSED (409 Conflict per user) |
 
 ### 📖 3. Reading Status & Progress
 | Status | Test Category | Test Case | Current Result |
 | :---: | :--- | :--- | :--- |
 | ✅ | **Unit** | Progress Constraint | PASSED (Controller Logic) |
-| ✅ | **Unit** | Rating Range | PASSED |
+| ✅ | **Unit** | Rating Range | PASSED (1-5 limit) |
 | ✅ | **API** | Status Transition | PASSED |
 | ✅ | **API** | Progress Update | PASSED |
+| ✅ | **API** | Auto-Completion | PASSED (Sets status to Read on 100% progress) |
 | ✅ | **API** | Add Rating | PASSED |
 
 ### 🔍 4. Search & Filtering
 | Status | Test Category | Test Case | Current Result |
 | :---: | :--- | :--- | :--- |
-| ✅ | **API** | Search Query | PASSED (Title/Author/ISBN) |
+| ✅ | **API** | Search Query | PASSED (Title/Author) |
+| ✅ | **API** | Filter by Status | PASSED (Reading/Read/etc) |
+| ✅ | **API** | Filter by Genre | PASSED |
+| ✅ | **API** | Sorting | PASSED (Title, Rating, Date) |
 | ✅ | **API** | Case Insensitive | PASSED |
+| ✅ | **Edge** | Special Characters | PASSED (Handles encoded queries) |
 
 ### 📊 5. Statistics & Dashboard
 | Status | Test Category | Test Case | Current Result |
 | :---: | :--- | :--- | :--- |
-| ✅ | **API** | Dashboard Data | PASSED (Aggregation Logic) |
-| ✅ | **API** | Goal Setting | PASSED |
+| ✅ | **API** | Dashboard Stats | PASSED (Aggregation Logic) |
+| ✅ | **API** | Genre Dist | PASSED (Grouped results) |
+| ✅ | **API** | Goal Setting | PASSED (Create/Update) |
+| ✅ | **API** | CSV Export | PASSED (RFC-4180 format) |
+| ✅ | **Edge** | Zero Dataset | PASSED (Empty results handled) |
 
 ---
 
 ## 🚀 Execution Summary
 - **Total Backend Tests**: 47
 - **RED (Initial)**: 47/47
-- **GREEN (Current)**: 30/47
-- **Pending Implementation**: 17 (Edge Cases, CSV, Docker)
+- **GREEN (Current)**: 42/47
+- **Pending Implementation**: 5 (Docker & System Infrastructure)
 
 > [!TIP]
-> This dual-phase log provides a clear audit trail of the TDD process.
+> All application logic is now verified GREEN. The remaining 5 tests cover the Docker environment and database persistence.

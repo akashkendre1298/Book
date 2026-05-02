@@ -23,7 +23,11 @@ public class BooksController : ControllerBase
     private Guid UserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] string? query)
+    public async Task<IActionResult> GetAll(
+        [FromQuery] string? query, 
+        [FromQuery] ReadingStatus? status, 
+        [FromQuery] string? genre,
+        [FromQuery] string? sortBy = "dateAdded")
     {
         var queryable = _context.Books.Where(b => b.UserId == UserId);
 
@@ -32,9 +36,19 @@ public class BooksController : ControllerBase
             var lowerQuery = query.ToLower();
             queryable = queryable.Where(b => 
                 (b.Title != null && b.Title.ToLower().Contains(lowerQuery)) || 
-                (b.Author != null && b.Author.ToLower().Contains(lowerQuery)) || 
-                (b.ISBN != null && b.ISBN.ToLower().Contains(lowerQuery)));
+                (b.Author != null && b.Author.ToLower().Contains(lowerQuery)));
         }
+
+        if (status.HasValue) queryable = queryable.Where(b => b.Status == status.Value);
+        if (!string.IsNullOrWhiteSpace(genre)) queryable = queryable.Where(b => b.Genre == genre);
+
+        queryable = sortBy?.ToLower() switch
+        {
+            "title" => queryable.OrderBy(b => b.Title),
+            "author" => queryable.OrderBy(b => b.Author),
+            "rating" => queryable.OrderByDescending(b => b.Rating),
+            _ => queryable.OrderByDescending(b => b.CreatedAt)
+        };
 
         var books = await queryable.ToListAsync();
         return Ok(books);
@@ -52,6 +66,9 @@ public class BooksController : ControllerBase
     public async Task<IActionResult> Create([FromBody] Book book)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
+
+        if (!string.IsNullOrEmpty(book.ISBN) && await _context.Books.AnyAsync(b => b.ISBN == book.ISBN && b.UserId == UserId))
+            return Conflict(new { message = "Book with this ISBN already exists in your collection" });
 
         book.UserId = UserId;
         _context.Books.Add(book);

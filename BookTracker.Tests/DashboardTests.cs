@@ -2,11 +2,11 @@ using Xunit;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Configuration;
 using System.Net;
 using System.Net.Http.Json;
 using BookTracker.Api.Models;
 using System.Net.Http.Headers;
+using System.Text.Json;
 
 namespace BookTracker.Tests;
 
@@ -29,20 +29,33 @@ public class DashboardTests : IClassFixture<WebApplicationFactory<Program>>
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", result!.Token);
     }
 
-    #region API Tests
     [Fact] 
     public async Task GetStats_ReturnsSummary() 
     {
         await AuthenticateAsync();
-        // Add some data
-        await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "B1", Author = "A1", TotalPages = 100, Status = ReadingStatus.Read });
+        await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "B1", Author = "A1", TotalPages = 100, CurrentPage = 50, Status = ReadingStatus.Reading });
         
         var response = await _client.GetAsync("/api/v1/dashboard/stats");
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        
-        // Structure check (simulated)
-        var content = await response.Content.ReadAsStringAsync();
-        content.Should().Contain("totalBooks");
+        var stats = await response.Content.ReadFromJsonAsync<JsonElement>();
+        stats.GetProperty("totalBooks").GetInt32().Should().Be(1);
+    }
+
+    [Fact] 
+    public async Task GetStats_ZeroDataset_ReturnsZeroes() 
+    {
+        await AuthenticateAsync();
+        var response = await _client.GetAsync("/api/v1/dashboard/stats");
+        var stats = await response.Content.ReadFromJsonAsync<JsonElement>();
+        stats.GetProperty("totalBooks").GetInt32().Should().Be(0);
+    }
+
+    [Fact] 
+    public async Task ExportCsv_ReturnsFile() 
+    {
+        await AuthenticateAsync();
+        await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "CSV Book", Author = "Author" });
+        var response = await _client.GetAsync("/api/v1/dashboard/export");
+        response.Content.Headers.ContentType!.MediaType.Should().Be("text/csv");
     }
 
     [Fact] 
@@ -52,5 +65,35 @@ public class DashboardTests : IClassFixture<WebApplicationFactory<Program>>
         var response = await _client.PostAsJsonAsync("/api/v1/dashboard/goal", new { targetYear = 2026, goalCount = 12 });
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
-    #endregion
+
+    [Fact] 
+    public async Task SetGoal_Update_Works() 
+    {
+        await AuthenticateAsync();
+        await _client.PostAsJsonAsync("/api/v1/dashboard/goal", new { targetYear = 2026, goalCount = 10 });
+        var response = await _client.PostAsJsonAsync("/api/v1/dashboard/goal", new { targetYear = 2026, goalCount = 20 });
+        var goal = await response.Content.ReadFromJsonAsync<ReadingGoal>();
+        goal!.GoalCount.Should().Be(20);
+    }
+
+    [Fact] 
+    public async Task Stats_GenreDistribution_Correct() 
+    {
+        await AuthenticateAsync();
+        await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "B1", Author = "A", Genre = "Fantasy" });
+        await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "B2", Author = "A", Genre = "Fantasy" });
+        var response = await _client.GetAsync("/api/v1/dashboard/stats");
+        var stats = await response.Content.ReadFromJsonAsync<JsonElement>();
+        stats.GetProperty("genreDistribution").GetProperty("Fantasy").GetInt32().Should().Be(2);
+    }
+
+    [Fact] 
+    public async Task Stats_ReadingCount_Correct() 
+    {
+        await AuthenticateAsync();
+        await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "B1", Author = "A", Status = ReadingStatus.Reading });
+        var response = await _client.GetAsync("/api/v1/dashboard/stats");
+        var stats = await response.Content.ReadFromJsonAsync<JsonElement>();
+        stats.GetProperty("readingBooks").GetInt32().Should().Be(1);
+    }
 }

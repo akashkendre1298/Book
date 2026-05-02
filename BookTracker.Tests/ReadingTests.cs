@@ -2,7 +2,6 @@ using Xunit;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Configuration;
 using System.Net;
 using System.Net.Http.Json;
 using BookTracker.Api.Models;
@@ -29,24 +28,12 @@ public class ReadingTests : IClassFixture<WebApplicationFactory<Program>>
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", result!.Token);
     }
 
-    #region Unit Tests
-    [Fact] 
-    public void Progress_MustBeBetweenZeroAndTotalPages() 
-    {
-        var book = new Book { TotalPages = 100, CurrentPage = 150 };
-        // We'll implement a custom validator or check in setter (but simple for now)
-        (book.CurrentPage > book.TotalPages).Should().BeTrue(); // This should be handled by business logic in controller
-    }
-    #endregion
-
-    #region API Tests
     [Fact] 
     public async Task UpdateStatus_Valid_Returns200() 
     {
         await AuthenticateAsync();
         var createResponse = await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "Book", Author = "Author" });
         var book = await createResponse.Content.ReadFromJsonAsync<Book>();
-
         var response = await _client.PatchAsJsonAsync($"/api/v1/books/{book!.Id}/status", new { status = ReadingStatus.Reading });
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
@@ -57,7 +44,6 @@ public class ReadingTests : IClassFixture<WebApplicationFactory<Program>>
         await AuthenticateAsync();
         var createResponse = await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "Book", Author = "Author", TotalPages = 100 });
         var book = await createResponse.Content.ReadFromJsonAsync<Book>();
-
         var response = await _client.PatchAsJsonAsync($"/api/v1/books/{book!.Id}/progress", new { currentPage = 50 });
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
@@ -68,7 +54,6 @@ public class ReadingTests : IClassFixture<WebApplicationFactory<Program>>
         await AuthenticateAsync();
         var createResponse = await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "Book", Author = "Author", TotalPages = 100 });
         var book = await createResponse.Content.ReadFromJsonAsync<Book>();
-
         var response = await _client.PatchAsJsonAsync($"/api/v1/books/{book!.Id}/progress", new { currentPage = 150 });
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -79,9 +64,22 @@ public class ReadingTests : IClassFixture<WebApplicationFactory<Program>>
         await AuthenticateAsync();
         var createResponse = await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "Book", Author = "Author" });
         var book = await createResponse.Content.ReadFromJsonAsync<Book>();
-
         var response = await _client.PatchAsJsonAsync($"/api/v1/books/{book!.Id}/rating", new { rating = 5 });
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
-    #endregion
+
+    [Fact] 
+    public async Task AutoSet_FinishDate_WhenRead() 
+    {
+        await AuthenticateAsync();
+        var createResponse = await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "Book", Author = "Author", TotalPages = 100 });
+        var book = await createResponse.Content.ReadFromJsonAsync<Book>();
+        
+        // Setting progress to 100 should set status to Read
+        await _client.PatchAsJsonAsync($"/api/v1/books/{book!.Id}/progress", new { currentPage = 100 });
+        
+        var getResponse = await _client.GetAsync($"/api/v1/books/{book.Id}");
+        var updatedBook = await getResponse.Content.ReadFromJsonAsync<Book>();
+        updatedBook!.Status.Should().Be(ReadingStatus.Read);
+    }
 }
