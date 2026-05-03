@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #fdf8f8;
+  --color-paper-darker: #f1edec;
+  --color-paper-deep: #e5e2e1;
+  --color-ink: #181919;
+  --color-ink-muted: #444748;
+  --color-sage: #536257;
+  --color-sage-light: #d7e7d8;
+  --color-clay: #b06d50;
+
+  --font-serif: "Newsreader", serif;
+  --font-sans: "Inter", sans-serif;
+  
+  --radius-none: 0;
+}
+
+@layer base {
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+    background-image: url("https://www.transparenttextures.com/patterns/paper-fibers.png");
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-ink text-paper px-6 py-2 border border-ink hover:bg-transparent hover:text-ink transition-all duration-300 font-sans font-semibold uppercase tracking-wider text-xs;
+  }
+
+  .btn-secondary {
+    @apply bg-transparent text-ink px-6 py-2 border border-ink hover:bg-ink hover:text-paper transition-all duration-300 font-sans font-semibold uppercase tracking-wider text-xs;
+  }
+
+  .input-field {
+    @apply bg-transparent border-b border-ink/30 py-2 outline-none focus:border-ink transition-all font-sans;
+  }
+
+  .card {
+    @apply bg-paper p-6 border border-ink/10 shadow-sm hover:shadow-md transition-shadow;
+  }
+}

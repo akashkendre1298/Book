@@ -53,7 +53,7 @@ public class DashboardTests : IClassFixture<WebApplicationFactory<Program>>
     {
         await AuthenticateAsync();
         await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "CSV Book", Author = "Author" });
-        var response = await _client.GetAsync("/api/v1/dashboard/export");
+        var response = await _client.GetAsync("/api/v1/books/export");
         response.Content.Headers.ContentType!.MediaType.Should().Be("text/csv");
     }
 
@@ -61,7 +61,7 @@ public class DashboardTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task ExportCsv_Empty_ReturnsHeaderOnly() 
     {
         await AuthenticateAsync();
-        var response = await _client.GetAsync("/api/v1/dashboard/export");
+        var response = await _client.GetAsync("/api/v1/books/export");
         var csv = await response.Content.ReadAsStringAsync();
         csv.Should().StartWith("Title,Author");
     }
