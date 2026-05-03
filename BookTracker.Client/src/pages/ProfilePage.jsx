@@ -48,12 +48,7 @@ const ProfilePage = () => {
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-12">
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
-        className="grid grid-cols-1 lg:grid-cols-12 gap-12"
-      >
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
         {/* Left Column: Identity Card */}
         <div className="lg:col-span-4 space-y-8">
           <div className="bg-paper-darker border border-ink/10 p-10 relative overflow-hidden group shadow-sm">
@@ -167,7 +162,7 @@ const ProfilePage = () => {
             </section>
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 };

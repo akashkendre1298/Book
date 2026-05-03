@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
+import PageContainer from './components/PageContainer';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import CollectionIndex from './pages/CollectionIndex';
@@ -34,13 +35,15 @@ const ProtectedRoute = ({ children }) => {
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
+      <Route path="/login" element={<PageContainer><LoginPage /></PageContainer>} />
+      <Route path="/register" element={<PageContainer><RegisterPage /></PageContainer>} />
       
       <Route path="/" element={
         <ProtectedRoute>
           <Layout>
-            <Dashboard />
+            <PageContainer>
+              <Dashboard />
+            </PageContainer>
           </Layout>
         </ProtectedRoute>
       } />
@@ -48,7 +51,9 @@ function AppRoutes() {
       <Route path="/collection" element={
         <ProtectedRoute>
           <Layout>
-            <CollectionIndex />
+            <PageContainer>
+              <CollectionIndex />
+            </PageContainer>
           </Layout>
         </ProtectedRoute>
       } />
@@ -56,7 +61,9 @@ function AppRoutes() {
       <Route path="/books/add" element={
         <ProtectedRoute>
           <Layout>
-            <AddBookPage />
+            <PageContainer>
+              <AddBookPage />
+            </PageContainer>
           </Layout>
         </ProtectedRoute>
       } />
@@ -64,7 +71,9 @@ function AppRoutes() {
       <Route path="/books/:id/edit" element={
         <ProtectedRoute>
           <Layout>
-            <EditBookPage />
+            <PageContainer>
+              <EditBookPage />
+            </PageContainer>
           </Layout>
         </ProtectedRoute>
       } />
@@ -72,7 +81,9 @@ function AppRoutes() {
       <Route path="/books/:id" element={
         <ProtectedRoute>
           <Layout>
-            <BookDetailPage />
+            <PageContainer>
+              <BookDetailPage />
+            </PageContainer>
           </Layout>
         </ProtectedRoute>
       } />
@@ -80,7 +91,9 @@ function AppRoutes() {
       <Route path="/goals" element={
         <ProtectedRoute>
           <Layout>
-            <ReadingGoalsPage />
+            <PageContainer>
+              <ReadingGoalsPage />
+            </PageContainer>
           </Layout>
         </ProtectedRoute>
       } />
@@ -88,7 +101,9 @@ function AppRoutes() {
       <Route path="/profile" element={
         <ProtectedRoute>
           <Layout>
-            <ProfilePage />
+            <PageContainer>
+              <ProfilePage />
+            </PageContainer>
           </Layout>
         </ProtectedRoute>
       } />
