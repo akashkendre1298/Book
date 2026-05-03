@@ -30,6 +30,7 @@ public class AuthController : BaseApiController
         { 
             Id = user.Id, 
             Email = user.Email,
+            Role = user.Role,
             CreatedAt = user.CreatedAt
         });
     }
@@ -68,6 +69,7 @@ public class AuthController : BaseApiController
             { 
                 Id = user.Id, 
                 Email = user.Email,
+                Role = user.Role,
                 CreatedAt = user.CreatedAt
             }
         });
@@ -110,6 +112,7 @@ public class AuthController : BaseApiController
             { 
                 Id = user!.Id, 
                 Email = user!.Email,
+                Role = user!.Role,
                 CreatedAt = user!.CreatedAt
             }
         });
