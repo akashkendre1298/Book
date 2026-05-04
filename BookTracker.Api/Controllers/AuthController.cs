@@ -25,12 +25,18 @@ public class AuthController : BaseApiController
     {
         var user = await _context.Users.FindAsync(UserId);
         if (user == null) return NotFound();
+        
+        if (!user.IsActive) return Unauthorized(new { message = "Your access to the archive has been suspended by a Curator." });
+
+        user.LastActiveAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
 
         return Ok(new UserProfile 
         { 
             Id = user.Id, 
             Email = user.Email,
             Role = user.Role,
+            IsActive = user.IsActive,
             CreatedAt = user.CreatedAt
         });
     }
@@ -104,6 +110,12 @@ public class AuthController : BaseApiController
         if (!isValid)
             return Unauthorized(new { message = "Invalid email or password" });
 
+        if (!user!.IsActive)
+            return Unauthorized(new { message = "Your access to the archive has been suspended by a Curator." });
+
+        user.LastActiveAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
         var token = _authService.GenerateJwtToken(user!);
         return Ok(new AuthResponse 
         { 
@@ -113,6 +125,7 @@ public class AuthController : BaseApiController
                 Id = user!.Id, 
                 Email = user!.Email,
                 Role = user!.Role,
+                IsActive = user!.IsActive,
                 CreatedAt = user!.CreatedAt
             }
         });

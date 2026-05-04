@@ -13,4 +13,12 @@ public abstract class BaseApiController : ControllerBase
             return userIdClaim != null ? Guid.Parse(userIdClaim) : Guid.Empty;
         }
     }
+
+    protected string UserRole
+    {
+        get
+        {
+            return User.FindFirstValue(ClaimTypes.Role) ?? "User";
+        }
+    }
 }

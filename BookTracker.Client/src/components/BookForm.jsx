@@ -109,17 +109,43 @@ const BookForm = ({ formData, setFormData, handleSubmit, loading, error, isEdit 
         {/* Cover Image URL */}
         <div className="md:col-span-2 group">
           <label className="text-[10px] font-sans font-bold uppercase tracking-[0.3em] text-ink/40 mb-3 flex items-center gap-2">
-            <BookIcon className="w-3 h-3" /> Cover Image URL
+            <BookIcon className="w-3 h-3" /> Cover Image URL / Path
           </label>
-          <input 
-            type="url" 
-            name="coverImageUrl"
-            value={formData.coverImageUrl}
-            onChange={handleChange}
-            placeholder="https://images.com/cover.jpg"
-            className="w-full bg-transparent border-b border-ink/10 py-2 font-sans text-xs outline-none focus:border-clay transition-all placeholder:text-ink/10"
-          />
-          <p className="mt-2 text-[9px] font-sans uppercase tracking-widest text-ink/30 italic">Provide a direct link to the volume's cover art for the archive.</p>
+          
+          <div className="flex flex-col md:flex-row gap-8 items-start">
+            {formData.coverImageUrl && (
+              <div className="w-24 aspect-[2/3] bg-paper-darker border border-ink/10 flex-shrink-0 overflow-hidden shadow-sm">
+                <img 
+                  src={formData.coverImageUrl.startsWith('http') ? formData.coverImageUrl : `http://localhost:5128${formData.coverImageUrl.startsWith('/') ? '' : '/'}${formData.coverImageUrl}`} 
+                  alt="Preview" 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'flex';
+                  }}
+                />
+                <div className="hidden w-full h-full items-center justify-center bg-ink/5 text-[8px] font-sans uppercase tracking-tighter text-center p-1">
+                  Invalid Path
+                </div>
+              </div>
+            )}
+            
+            <div className="flex-grow w-full">
+              <input 
+                type="text" 
+                name="coverImageUrl"
+                value={formData.coverImageUrl}
+                onChange={handleChange}
+                placeholder="https://images.com/cover.jpg or /uploads/..."
+                className="w-full bg-transparent border-b border-ink/10 py-2 font-sans text-xs outline-none focus:border-clay transition-all placeholder:text-ink/10"
+              />
+              <p className="mt-2 text-[9px] font-sans uppercase tracking-widest text-ink/30 italic">
+                {formData.coverImageUrl?.includes('/uploads/') 
+                  ? "Archived image detected. You can replace it with a new URL or leave as is."
+                  : "Provide a direct link or archival path for the volume's cover art."}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 

@@ -32,7 +32,13 @@ public class Book
     
     public string? Review { get; set; }
     
-    [System.Text.Json.Serialization.JsonIgnore]
+    // Admin & Moderation properties
+    public BookVisibility Visibility { get; set; } = BookVisibility.Private;
+    public ModerationStatus ModerationStatus { get; set; } = ModerationStatus.None;
+    public bool IsApproved { get; set; } = false;
+    public string? PdfUrl { get; set; }
+    public string? OwnerRole { get; set; } = "User";
+
     public Guid UserId { get; set; }
     [System.Text.Json.Serialization.JsonIgnore]
     public User? User { get; set; }
@@ -47,4 +53,18 @@ public enum ReadingStatus
     Reading,
     Read,
     Dropped
+}
+
+public enum BookVisibility
+{
+    Private,
+    Public
+}
+
+public enum ModerationStatus
+{
+    None,
+    Pending,
+    Approved,
+    Rejected
 }

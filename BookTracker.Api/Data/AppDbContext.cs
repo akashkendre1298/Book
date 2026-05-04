@@ -10,6 +10,9 @@ public class AppDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<Book> Books => Set<Book>();
     public DbSet<ReadingGoal> ReadingGoals => Set<ReadingGoal>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<BookRecommendation> BookRecommendations => Set<BookRecommendation>();
+    public DbSet<UserBook> UserBooks => Set<UserBook>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

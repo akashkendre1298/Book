@@ -27,4 +27,11 @@ api.interceptors.response.use(
   }
 );
 
+export const getAssetUrl = (path) => {
+  if (!path) return null;
+  if (path.startsWith('http')) return path;
+  const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5128/api/v1').split('/api/v1')[0];
+  return `${baseUrl}${path}`;
+};
+
 export default api;

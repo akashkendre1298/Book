@@ -54,7 +54,7 @@ const EditBookPage = () => {
         publicationYear: formData.publicationYear ? parseInt(formData.publicationYear) : null
       };
 
-      await api.put(`/books/${id}`, bookToUpdate);
+      await api.patch(`/books/${id}`, bookToUpdate);
       navigate(`/books/${id}`);
     } catch (err) {
       setError(err.response?.data?.message || 'An error occurred while updating the archival record.');

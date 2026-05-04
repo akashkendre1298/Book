@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import api from '../api/axios';
 import { motion } from 'framer-motion';
 import { Book as BookIcon, ChevronRight, Star, Edit3, Download } from 'lucide-react';
+import api, { getAssetUrl } from '../api/axios';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -93,7 +93,7 @@ const Dashboard = () => {
                   className="aspect-[2/3] bg-paper-darker border border-ink/10 shadow-2xl transition-transform duration-700 group-hover:scale-[1.02] cursor-pointer"
                 >
                   {featuredBook.coverImageUrl ? (
-                    <img src={featuredBook.coverImageUrl} alt={featuredBook.title} className="w-full h-full object-cover" />
+                    <img src={getAssetUrl(featuredBook.coverImageUrl)} alt={featuredBook.title} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center gap-4">
                       <BookIcon className="w-12 h-12 text-ink/5" />
@@ -160,7 +160,7 @@ const Dashboard = () => {
                 <li key={book.id} className="group">
                   <Link to={`/books/${book.id}`} className="flex gap-6 items-center">
                     <div className="w-16 aspect-[2/3] bg-paper-darker border border-ink/10 flex-shrink-0">
-                      {book.coverImageUrl && <img src={book.coverImageUrl} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" alt="" />}
+                      {book.coverImageUrl && <img src={getAssetUrl(book.coverImageUrl)} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" alt="" />}
                     </div>
                     <div>
                       <h4 className="text-lg leading-tight group-hover:text-clay transition-colors">{book.title}</h4>

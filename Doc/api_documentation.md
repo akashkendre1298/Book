@@ -58,7 +58,22 @@ Terminate current session (Server-side token invalidation if using a whitelist, 
 ## 2. Book Management (Books)
 
 ### GET /books
-Retrieve collection with search, filter, and sort.
+### GET /books/my
+Retrieve the user's personal collection.
+- **Query Parameters**:
+  - `q`: Search query (title, author, ISBN).
+  - `status`: Filter by status (`0: WantToRead`, `1: Reading`, `2: Read`).
+  - `sort_by`: `title`, `author`, `rating`, `dateadded`.
+
+### GET /books/public
+Retrieve the Public Library (Approved Public volumes).
+- **Query Parameters**:
+  - `q`: Search query.
+  - `genre`: Filter by genre.
+  - `sort_by`: `title`, `author`, `rating`.
+
+### GET /books/completed
+Retrieve only the user's completed volumes.
 - **Query Parameters**:
   - `q`: Search query (title, author, ISBN).
   - `genre`: Filter by genre (e.g., `FICTION`).

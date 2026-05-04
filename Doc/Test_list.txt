@@ -292,3 +292,49 @@ It is divided into:
   4. E2E
 
 ---
+=== ADMIN TEST CASES ===
+
+## ?? Admin Authentication
+- Admin login successful with role 'Admin'
+- Access /api/v1/admin/stats with Admin token -> 200
+- Access /api/v1/admin/stats with Regular User token -> 403
+- Access /api/v1/admin/stats without token -> 401
+
+## ?? User Management
+- Admin fetch all users -> 200
+- Admin block user (isActive = false) -> 200
+- Blocked user attempt login -> 401
+- Admin unblock user (isActive = true) -> 200
+- Admin delete user -> 204
+
+## ?? Admin Library Management
+- Admin upload book (Metadata + PDF + Cover) -> 201
+- Admin-uploaded book visibility is Public
+- Admin-uploaded book isApproved is true
+- Admin edit any book detail -> 200
+- Admin delete any book from global library -> 204
+
+## ??? Recommendation System
+- Admin fetch pending recommendations -> 200
+- Admin approve recommendation -> 200
+- Approved book becomes Public and Approved
+- Admin reject recommendation -> 200
+- Rejected book remains Private and Unapproved
+
+## ??? Public Library Validation
+- Public Library returns only visibility=Public and isApproved=true books
+- Private books never appear in Public Library
+- Public Library is state-neutral (Progress/Rating/Status reset)
+
+## ?? Admin Dashboard
+- Total users count reflects database accurately
+- Total books count reflects database accurately
+- Pending recommendations count matches pending table
+
+## ?? Admin Frontend UI
+- Admin Dashboard cards render correct stats
+- Admin User Management list displays all archivists
+- Block/Delete buttons trigger correct API calls and update UI
+- Recommendation list shows pending folios with Approve/Reject actions
+- Approve action updates book status in UI immediately
+- Reject action removes folio from list

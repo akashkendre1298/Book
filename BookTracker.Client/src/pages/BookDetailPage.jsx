@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import api from '../api/axios';
+import api, { getAssetUrl } from '../api/axios';
+import { useAuth } from '../context/AuthContext';
 
 const BookDetailPage = () => {
   const { id } = useParams();
@@ -9,6 +10,9 @@ const BookDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({});
+  const { user } = useAuth();
+  
+  const isOwner = user && book && (user.id === book.userId || user.role === 'Admin');
 
   useEffect(() => {
     fetchBook();
@@ -28,11 +32,18 @@ const BookDetailPage = () => {
   };
 
   const handleUpdateStatus = async (status) => {
+    console.log('Attempting to update status to:', status, 'for book:', id);
     try {
       const response = await api.patch(`/books/${id}/status`, { status });
+      console.log('Status update successful:', response.data);
       setBook(response.data);
     } catch (error) {
       console.error('Error updating status:', error);
+      if (error.response?.status === 404) {
+        alert('Volume not found or you do not have permission to modify this master record.');
+      } else {
+        alert('Archive update failed. Check connection.');
+      }
     }
   };
 
@@ -41,7 +52,11 @@ const BookDetailPage = () => {
     if (isNaN(page)) return;
     try {
       const response = await api.patch(`/books/${id}/progress`, { currentPage: page });
-      setBook(response.data);
+      if (response.data) {
+        setBook(response.data);
+      } else {
+        console.warn('Archive returned empty record. Synchronization skipped.');
+      }
     } catch (error) {
       console.error('Error updating progress:', error);
     }
@@ -56,6 +71,17 @@ const BookDetailPage = () => {
     }
   };
 
+  const handleRequestPublic = async () => {
+    try {
+      await api.post(`/books/${id}/recommend`);
+      alert('Request submitted to the High Curator.');
+      fetchBook();
+    } catch (error) {
+      console.error('Request failed:', error);
+      alert(error.response?.data?.message || 'Failed to submit request.');
+    }
+  };
+
   const handleDelete = async () => {
     if (window.confirm('Are you sure you wish to remove this volume from your collection?')) {
       try {
@@ -67,7 +93,7 @@ const BookDetailPage = () => {
     }
   };
 
-  if (loading) return <div className="flex justify-center items-center h-screen font-serif italic text-ink-muted">Retrieving the folio...</div>;
+  if (loading || !book) return <div className="flex justify-center items-center h-screen font-serif italic text-ink-muted">Retrieving the folio...</div>;
 
   const progressPercent = book.totalPages ? Math.round((book.currentPage / book.totalPages) * 100) : 0;
 
@@ -85,7 +111,7 @@ const BookDetailPage = () => {
         <div className="md:col-span-4 lg:col-span-3">
           <div className="aspect-[2/3] bg-paper-darker shadow-xl relative group overflow-hidden border border-ink/5">
             {book.coverImageUrl ? (
-              <img src={book.coverImageUrl} alt={book.title} className="w-full h-full object-cover" />
+              <img src={getAssetUrl(book.coverImageUrl)} alt={book.title} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center p-8 text-center border-2 border-dashed border-ink/10">
                 <span className="font-serif italic text-ink/20">Cover image not archived</span>
@@ -117,12 +143,13 @@ const BookDetailPage = () => {
                 {[0, 1, 2].map((s) => (
                   <button
                     key={s}
-                    onClick={() => handleUpdateStatus(s)}
+                    onClick={() => isOwner && handleUpdateStatus(s)}
+                    disabled={!isOwner}
                     className={`px-3 py-1 text-[10px] font-sans uppercase tracking-wider border transition-all ${
                       book.status === s 
                         ? 'bg-ink text-paper border-ink' 
                         : 'border-ink/20 text-ink/60 hover:border-ink'
-                    }`}
+                    } ${!isOwner ? 'cursor-default opacity-80' : 'cursor-pointer'}`}
                   >
                     {s === 0 ? 'To Read' : s === 1 ? 'Reading' : 'Finished'}
                   </button>
@@ -136,10 +163,11 @@ const BookDetailPage = () => {
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
                     key={star}
-                    onClick={() => handleUpdateRating(star)}
+                    onClick={() => isOwner && handleUpdateRating(star)}
+                    disabled={!isOwner}
                     className={`text-xl transition-colors ${
                       star <= (book.rating || 0) ? 'text-clay' : 'text-ink/10 hover:text-clay/40'
-                    }`}
+                    } ${!isOwner ? 'cursor-default' : 'cursor-pointer'}`}
                   >
                     ★
                   </button>
@@ -156,12 +184,14 @@ const BookDetailPage = () => {
               <h1 className="text-6xl mb-4 leading-tight">{book.title}</h1>
               <h2 className="text-3xl font-serif italic text-ink-muted">by {book.author}</h2>
             </div>
-            <button 
-              onClick={() => navigate(`/books/${id}/edit`)}
-              className="px-6 py-3 border border-ink/10 text-[10px] font-sans uppercase tracking-[0.2em] hover:bg-ink hover:text-paper transition-all"
-            >
-              Modify Record
-            </button>
+            {isOwner && (
+              <button 
+                onClick={() => navigate(`/books/${id}/edit`)}
+                className="px-6 py-3 border border-ink/10 text-[10px] font-sans uppercase tracking-[0.2em] hover:bg-ink hover:text-paper transition-all"
+              >
+                Modify Record
+              </button>
+            )}
           </header>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
@@ -191,9 +221,12 @@ const BookDetailPage = () => {
                     <div className="flex items-baseline gap-2">
                       <input 
                         type="number" 
-                        value={book.currentPage}
-                        onChange={handleUpdateProgress}
-                        className="w-16 bg-transparent border-b border-ink/20 text-2xl outline-none focus:border-clay transition-colors"
+                        defaultValue={book.currentPage}
+                        onBlur={handleUpdateProgress}
+                        readOnly={!isOwner || book.status !== 1}
+                        className={`w-16 bg-transparent border-b border-ink/20 text-2xl outline-none focus:border-clay transition-colors ${(!isOwner || book.status !== 1) ? 'cursor-default' : ''}`}
+                        min="0"
+                        max={book.totalPages || 9999}
                       />
                       <span className="text-ink/40">/ {book.totalPages || '???'} pages</span>
                     </div>
@@ -216,18 +249,31 @@ const BookDetailPage = () => {
                   className="w-full bg-paper-darker border border-ink/5 p-6 font-serif italic text-ink-muted leading-relaxed min-h-[200px] outline-none focus:border-clay/20 transition-all"
                   placeholder="Record your impressions of this volume..."
                   value={book.review || ''}
-                  onChange={(e) => setBook({ ...book, review: e.target.value })}
+                  onChange={(e) => isOwner && setBook({ ...book, review: e.target.value })}
                   onBlur={async () => {
+                    if (!isOwner) return;
                     try {
-                      await api.put(`/books/${id}`, book);
+                      await api.patch(`/books/${id}`, { review: book.review });
                     } catch (error) {
                       console.error('Error saving review:', error);
                     }
                   }}
+                  readOnly={!isOwner}
                 ></textarea>
               </section>
 
-              <div className="flex gap-4 pt-12">
+              <div className="flex gap-8 pt-12 items-center">
+                {!book.isApproved && book.visibility === 0 && (
+                  <button 
+                    onClick={handleRequestPublic}
+                    disabled={book.moderationStatus === 1}
+                    className={`px-8 py-3 bg-clay text-paper text-[10px] font-sans uppercase tracking-[0.2em] hover:bg-clay-dark transition-all shadow-xl ${
+                      book.moderationStatus === 1 ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    {book.moderationStatus === 1 ? 'Pending Approval' : 'Request for Public Library'}
+                  </button>
+                )}
                 <button 
                   onClick={handleDelete}
                   className="text-[10px] font-sans uppercase tracking-widest text-red-800/40 hover:text-red-800 transition-colors"
