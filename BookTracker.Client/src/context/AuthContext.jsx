@@ -9,18 +9,26 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    if (token && storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
+    const checkAuth = async () => {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        try {
+          // Verify with backend that cookie is still valid
+          const response = await api.get('/auth/me');
+          setUser(response.data);
+        } catch (error) {
+          localStorage.removeItem('user');
+          setUser(null);
+        }
+      }
+      setLoading(false);
+    };
+    checkAuth();
   }, []);
 
   const login = async (email, password) => {
     const response = await api.post('/auth/login', { email, password });
-    const { token, user } = response.data;
-    localStorage.setItem('token', token);
+    const { user } = response.data;
     localStorage.setItem('user', JSON.stringify(user));
     setUser(user);
     return user;
@@ -28,17 +36,21 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (email, password) => {
     const response = await api.post('/auth/register', { email, password });
-    const { token, user } = response.data;
-    localStorage.setItem('token', token);
+    const { user } = response.data;
     localStorage.setItem('user', JSON.stringify(user));
     setUser(user);
     return user;
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
+  const logout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch (e) {
+      console.error('Logout error', e);
+    } finally {
+      localStorage.removeItem('user');
+      setUser(null);
+    }
   };
 
   return (

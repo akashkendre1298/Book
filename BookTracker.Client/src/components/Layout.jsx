@@ -1,15 +1,17 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Library, LayoutDashboard, Bookmark, LogOut, ShieldCheck } from 'lucide-react';
+import { Library, LayoutDashboard, Bookmark, LogOut, ShieldCheck, Menu, X } from 'lucide-react';
 
 const Layout = ({ children }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
   const handleLogout = () => {
     logout();
+    setIsMobileMenuOpen(false);
     navigate('/login');
   };
 
@@ -35,6 +37,7 @@ const Layout = ({ children }) => {
             <span className="font-serif text-2xl tracking-tight italic">Athenaeum</span>
           </Link>
 
+          {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-10">
             {navItems.map((item) => (
               <Link
@@ -61,7 +64,46 @@ const Layout = ({ children }) => {
               <LogOut className="w-5 h-5" />
             </button>
           </nav>
+
+          {/* Mobile Menu Button */}
+          <button 
+            className="md:hidden text-ink p-2"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
         </div>
+
+        {/* Mobile Nav */}
+        {isMobileMenuOpen && (
+          <nav className="md:hidden flex flex-col bg-paper border-b border-ink/10 px-6 py-4 gap-4">
+            {navItems.map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={`font-sans text-sm font-semibold uppercase tracking-widest transition-colors ${
+                  location.pathname === item.path ? 'text-ink' : 'text-ink/40'
+                }`}
+              >
+                {item.name}
+              </Link>
+            ))}
+            <Link 
+              to="/books/add" 
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="bg-ink text-paper px-4 py-2 text-[10px] w-max font-sans uppercase tracking-widest font-semibold hover:bg-clay transition-colors"
+            >
+              Add Volume
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="text-left font-sans text-sm font-semibold uppercase tracking-widest text-ink/40"
+            >
+              Logout
+            </button>
+          </nav>
+        )}
       </header>
 
       <main className="flex-1 max-w-7xl mx-auto px-6 py-12 w-full">

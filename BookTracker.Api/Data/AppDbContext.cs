@@ -21,5 +21,14 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<User>()
             .HasIndex(u => u.Email)
             .IsUnique();
+
+        modelBuilder.Entity<Book>()
+            .HasIndex(b => b.UserId);
+
+        modelBuilder.Entity<Book>()
+            .HasIndex(b => b.ISBN);
+
+        modelBuilder.Entity<AuditLog>()
+            .HasIndex(l => l.Timestamp);
     }
 }

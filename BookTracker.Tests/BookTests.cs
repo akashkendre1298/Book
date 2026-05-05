@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Hosting;
 using System.Net;
 using System.Net.Http.Json;
 using BookTracker.Api.Models;
+using BookTracker.Api.Models.Dtos;
 using System.Net.Http.Headers;
 
 namespace BookTracker.Tests;
@@ -24,7 +25,7 @@ public class BookTests : IClassFixture<WebApplicationFactory<Program>>
     {
         var email = $"user_{Guid.NewGuid()}@test.com";
         var response = await _client.PostAsJsonAsync("/api/v1/auth/register", new { Email = email, Password = "Password123!" });
-        var result = await response.Content.ReadFromJsonAsync<AuthResponse>();
+        var result = await response.Content.ReadFromJsonAsync<AuthResponse>(TestJsonOptions.Options);
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", result!.Token);
     }
 
@@ -80,7 +81,7 @@ public class BookTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task CreateBook_Valid_Returns201() 
     {
         await AuthenticateAsync();
-        var response = await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "Test Book", Author = "Test Author" });
+        var response = await _client.PostAsJsonAsync("/api/v1/books", new BookCreateDto { Title = "Test Book", Author = "Test Author" });
         response.StatusCode.Should().Be(HttpStatusCode.Created);
     }
 
@@ -96,10 +97,11 @@ public class BookTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task UpdateBook_Valid_Returns200() 
     {
         await AuthenticateAsync();
-        var createResponse = await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "Old", Author = "Author" });
-        var book = await createResponse.Content.ReadFromJsonAsync<Book>();
-        book!.Title = "New";
-        var response = await _client.PutAsJsonAsync($"/api/v1/books/{book.Id}", book);
+        var createResponse = await _client.PostAsJsonAsync("/api/v1/books", new BookCreateDto { Title = "Old", Author = "Author" });
+        var book = await createResponse.Content.ReadFromJsonAsync<Book>(TestJsonOptions.Options);
+        
+        var updateDto = new BookUpdateDto { Title = "New" };
+        var response = await _client.PutAsJsonAsync($"/api/v1/books/{book!.Id}", updateDto);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
@@ -107,8 +109,8 @@ public class BookTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task DeleteBook_Valid_Returns204() 
     {
         await AuthenticateAsync();
-        var createResponse = await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "To Delete", Author = "Author" });
-        var book = await createResponse.Content.ReadFromJsonAsync<Book>();
+        var createResponse = await _client.PostAsJsonAsync("/api/v1/books", new BookCreateDto { Title = "To Delete", Author = "Author" });
+        var book = await createResponse.Content.ReadFromJsonAsync<Book>(TestJsonOptions.Options);
         var response = await _client.DeleteAsync($"/api/v1/books/{book!.Id}");
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
     }
@@ -117,7 +119,7 @@ public class BookTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task CreateBook_DuplicateISBN_Returns409() 
     {
         await AuthenticateAsync();
-        var book = new Book { Title = "B1", Author = "A1", ISBN = "1234567890" };
+        var book = new BookCreateDto { Title = "B1", Author = "A1", ISBN = "1234567890" };
         await _client.PostAsJsonAsync("/api/v1/books", book);
         var response = await _client.PostAsJsonAsync("/api/v1/books", book);
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
@@ -135,14 +137,19 @@ public class BookTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task UploadCover_ValidImage_Succeeds() 
     {
         await AuthenticateAsync();
-        var createResponse = await _client.PostAsJsonAsync("/api/v1/books", new Book { Title = "Title", Author = "Author" });
-        var book = await createResponse.Content.ReadFromJsonAsync<Book>();
+        var createResponse = await _client.PostAsJsonAsync("/api/v1/books", new BookCreateDto { Title = "Title", Author = "Author" });
+        var book = await createResponse.Content.ReadFromJsonAsync<Book>(TestJsonOptions.Options);
         var content = new MultipartFormDataContent();
-        var fileContent = new ByteArrayContent(new byte[] { 0x01 });
+        
+        // Mocking a valid JPEG magic bytes (FF D8 FF)
+        var fileBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46 };
+        var fileContent = new ByteArrayContent(fileBytes);
         fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse("image/jpeg");
         content.Add(fileContent, "file", "test.jpg");
+        
         var response = await _client.PostAsync($"/api/v1/books/{book!.Id}/cover", content);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
     #endregion
 }
+

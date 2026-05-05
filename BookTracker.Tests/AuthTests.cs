@@ -8,6 +8,7 @@ using BookTracker.Api.Models;
 using BookTracker.Api.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
+using System.Net.Http.Headers;
 
 namespace BookTracker.Tests;
 
@@ -127,6 +128,11 @@ public class AuthTests : IClassFixture<WebApplicationFactory<Program>>
     [Fact] 
     public async Task Logout_Returns204() 
     {
+        var email = $"logout_{Guid.NewGuid()}@test.com";
+        var regRes = await _client.PostAsJsonAsync("/api/v1/auth/register", new { Email = email, Password = "Password123!" });
+        var auth = await regRes.Content.ReadFromJsonAsync<AuthResponse>(TestJsonOptions.Options);
+        
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth!.Token);
         var response = await _client.PostAsync("/api/v1/auth/logout", null);
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
     }

@@ -1,5 +1,6 @@
 using BookTracker.Api.Data;
 using BookTracker.Api.Models;
+using BookTracker.Api.Models.Dtos;
 using BookTracker.Api.Constants;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -19,7 +20,7 @@ public class BookService : IBookService
         _logger = logger;
     }
 
-    public async Task<List<Book>> GetMyCollectionAsync(Guid userId, string? query, ReadingStatus? status, string? sortBy)
+    public async Task<(List<Book> Items, int TotalCount)> GetMyCollectionAsync(Guid userId, string? query, ReadingStatus? status, string? sortBy, int pageNumber = 1, int pageSize = 20)
     {
         var queryable = _context.Books.Where(b => b.UserId == userId);
 
@@ -34,6 +35,8 @@ public class BookService : IBookService
 
         if (status.HasValue) queryable = queryable.Where(b => b.Status == status.Value);
 
+        var totalCount = await queryable.CountAsync();
+
         queryable = sortBy?.ToLower() switch
         {
             ApiConstants.SortFields.Title => queryable.OrderBy(b => b.Title),
@@ -42,12 +45,16 @@ public class BookService : IBookService
             _ => queryable.OrderByDescending(b => b.CreatedAt)
         };
 
-        return await queryable.ToListAsync();
+        var items = await queryable
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return (items, totalCount);
     }
 
-    public async Task<List<Book>> GetPublicLibraryAsync(string? query, string? genre, string? sortBy)
+    public async Task<(List<Book> Items, int TotalCount)> GetPublicLibraryAsync(string? query, string? genre, string? sortBy, int pageNumber = 1, int pageSize = 20)
     {
-        // Public Library = ONLY Public + Approved books (Global)
         var queryable = _context.Books.Where(b => b.Visibility == BookVisibility.Public && b.IsApproved);
 
         if (!string.IsNullOrWhiteSpace(query))
@@ -60,6 +67,8 @@ public class BookService : IBookService
 
         if (!string.IsNullOrWhiteSpace(genre)) queryable = queryable.Where(b => b.Genre == genre);
 
+        var totalCount = await queryable.CountAsync();
+
         queryable = sortBy?.ToLower() switch
         {
             ApiConstants.SortFields.Title => queryable.OrderBy(b => b.Title),
@@ -67,23 +76,26 @@ public class BookService : IBookService
             _ => queryable.OrderByDescending(b => b.CreatedAt)
         };
 
-        var books = await queryable.ToListAsync();
+        var items = await queryable
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
 
         // Ensure state-neutrality: Public library returns pure bibliographic data only
-        foreach (var book in books)
+        foreach (var book in items)
         {
+            // Reset to default archival state for the public index
             book.Status = ReadingStatus.WantToRead;
             book.CurrentPage = 0;
             book.Rating = null;
             book.Review = null;
         }
 
-        return books;
+        return (items, totalCount);
     }
 
-    public async Task<List<Book>> GetCompletedBooksAsync(Guid userId, string? query, string? sortBy)
+    public async Task<(List<Book> Items, int TotalCount)> GetCompletedBooksAsync(Guid userId, string? query, string? sortBy, int pageNumber = 1, int pageSize = 20)
     {
-        // Completed Index = Only user's books with status READ
         var queryable = _context.Books.Where(b => b.UserId == userId && b.Status == ReadingStatus.Read);
 
         if (!string.IsNullOrWhiteSpace(query))
@@ -94,6 +106,8 @@ public class BookService : IBookService
                 (b.Author != null && b.Author.ToLower().Contains(lowerQuery)));
         }
 
+        var totalCount = await queryable.CountAsync();
+
         queryable = sortBy?.ToLower() switch
         {
             ApiConstants.SortFields.Title => queryable.OrderBy(b => b.Title),
@@ -101,19 +115,30 @@ public class BookService : IBookService
             _ => queryable.OrderByDescending(b => b.UpdatedAt)
         };
 
-        return await queryable.ToListAsync();
+        var items = await queryable
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return (items, totalCount);
     }
 
     public async Task<Book?> GetBookByIdAsync(Guid id, Guid userId, string userRole)
     {
-        IQueryable<Book> query = _context.Books;
+        var book = await _context.Books.Include(b => b.User).FirstOrDefaultAsync(b => b.Id == id);
+        
+        if (book == null) return null;
 
-        var book = await query.FirstOrDefaultAsync(b => b.Id == id && 
-            (b.UserId == userId || (b.Visibility == BookVisibility.Public && b.IsApproved)));
+        // Authorization: Owner or Public/Approved or Admin
+        bool isOwner = book.UserId == userId;
+        bool isPublic = book.Visibility == BookVisibility.Public && book.IsApproved;
+        bool isAdmin = string.Equals(userRole, "Admin", StringComparison.OrdinalIgnoreCase);
 
-        if (book != null && book.UserId != userId && userRole != "Admin")
+        if (!isOwner && !isPublic && !isAdmin) return null;
+
+        // Strip personal data if requester is not the owner (Bibliographic Neutrality)
+        if (!isOwner && !isAdmin)
         {
-            // Data Isolation: Viewer is not owner, return empty reading state
             book.Status = ReadingStatus.WantToRead;
             book.CurrentPage = 0;
             book.Rating = null;
@@ -123,34 +148,35 @@ public class BookService : IBookService
         return book;
     }
 
-    public async Task<Book> CreateBookAsync(Book book, Guid userId)
+    public async Task<Book> CreateBookAsync(BookCreateDto bookDto, Guid userId)
     {
-        if (!string.IsNullOrEmpty(book.ISBN))
+        if (!string.IsNullOrEmpty(bookDto.ISBN))
         {
-            if (await _context.Books.AnyAsync(b => b.ISBN == book.ISBN && b.UserId == userId))
+            if (await _context.Books.AnyAsync(b => b.ISBN == bookDto.ISBN && b.UserId == userId))
                 throw new InvalidOperationException("DuplicateISBN");
         }
 
         var user = await _context.Users.FindAsync(userId);
-        book.UserId = userId;
-        book.OwnerRole = user?.Role ?? "User";
+        
+        var book = new Book
+        {
+            Title = bookDto.Title,
+            Author = bookDto.Author,
+            ISBN = bookDto.ISBN,
+            Genre = bookDto.Genre,
+            TotalPages = bookDto.TotalPages,
+            PublicationYear = bookDto.PublicationYear,
+            UserId = userId,
+            OwnerRole = user?.Role ?? "User"
+        };
         
         if (!string.Equals(book.OwnerRole, "Admin", StringComparison.OrdinalIgnoreCase))
         {
-            var requestedPublic = book.ModerationStatus == ModerationStatus.Pending || book.Visibility == BookVisibility.Public;
             book.Visibility = BookVisibility.Private;
             book.IsApproved = false;
             book.ModerationStatus = ModerationStatus.None;
             _context.Books.Add(book);
             await _context.SaveChangesAsync();
-
-            if (requestedPublic)
-            {
-                var rec = new BookRecommendation { BookId = book.Id, UserId = userId, Status = ModerationStatus.Pending };
-                book.ModerationStatus = ModerationStatus.Pending;
-                _context.BookRecommendations.Add(rec);
-                await _context.SaveChangesAsync();
-            }
         }
         else
         {
@@ -164,21 +190,23 @@ public class BookService : IBookService
         return book;
     }
 
-    public async Task<Book?> UpdateBookAsync(Guid id, Book update, Guid userId, string userRole)
+    public async Task<Book?> UpdateBookAsync(Guid id, BookUpdateDto updateDto, Guid userId, string userRole)
     {
         var book = await GetBookByIdAsync(id, userId, userRole);
         if (book == null) return null;
 
-        // Surgical Update to prevent data loss if partial objects are sent via PUT
-        if (!string.IsNullOrEmpty(update.Title)) book.Title = update.Title;
-        if (!string.IsNullOrEmpty(update.Author)) book.Author = update.Author;
+        // Surgical Update to prevent over-posting and ensure data integrity
+        if (!string.IsNullOrEmpty(updateDto.Title)) book.Title = updateDto.Title;
+        if (!string.IsNullOrEmpty(updateDto.Author)) book.Author = updateDto.Author;
         
-        if (update.ISBN != null) book.ISBN = update.ISBN;
-        if (update.Genre != null) book.Genre = update.Genre;
-        if (update.TotalPages.HasValue) book.TotalPages = update.TotalPages;
-        if (update.PublicationYear.HasValue) book.PublicationYear = update.PublicationYear;
-        if (update.Review != null) book.Review = update.Review;
-        if (update.Rating.HasValue) book.Rating = update.Rating;
+        if (updateDto.ISBN != null) book.ISBN = updateDto.ISBN;
+        if (updateDto.Genre != null) book.Genre = updateDto.Genre;
+        if (updateDto.TotalPages.HasValue) book.TotalPages = updateDto.TotalPages;
+        if (updateDto.PublicationYear.HasValue) book.PublicationYear = updateDto.PublicationYear;
+        if (updateDto.Review != null) book.Review = updateDto.Review;
+        if (updateDto.Rating.HasValue) book.Rating = updateDto.Rating;
+        if (updateDto.Status.HasValue) book.Status = updateDto.Status.Value;
+        if (updateDto.CurrentPage.HasValue) book.CurrentPage = updateDto.CurrentPage.Value;
 
         book.UpdatedAt = DateTime.UtcNow;
 
@@ -186,34 +214,35 @@ public class BookService : IBookService
         return book;
     }
 
-    public async Task<Book?> PatchBookAsync(Guid id, System.Text.Json.JsonElement update, Guid userId, string userRole)
+    public async Task<Book?> PatchBookAsync(Guid id, JsonElement update, Guid userId, string userRole)
     {
         var book = await GetBookByIdAsync(id, userId, userRole);
         if (book == null) return null;
 
-        if (update.TryGetProperty("title", out var titleProp) && titleProp.ValueKind != System.Text.Json.JsonValueKind.Null) 
+        // Explicit property mapping to prevent mass assignment of internal fields
+        if (update.TryGetProperty("title", out var titleProp) && titleProp.ValueKind != JsonValueKind.Null) 
             book.Title = titleProp.GetString() ?? book.Title;
             
-        if (update.TryGetProperty("author", out var authorProp) && authorProp.ValueKind != System.Text.Json.JsonValueKind.Null) 
+        if (update.TryGetProperty("author", out var authorProp) && authorProp.ValueKind != JsonValueKind.Null) 
             book.Author = authorProp.GetString() ?? book.Author;
 
         if (update.TryGetProperty("isbn", out var isbnProp)) 
-            book.ISBN = isbnProp.ValueKind == System.Text.Json.JsonValueKind.Null ? null : isbnProp.GetString();
+            book.ISBN = isbnProp.ValueKind == JsonValueKind.Null ? null : isbnProp.GetString();
 
         if (update.TryGetProperty("genre", out var genreProp)) 
-            book.Genre = genreProp.ValueKind == System.Text.Json.JsonValueKind.Null ? null : genreProp.GetString();
+            book.Genre = genreProp.ValueKind == JsonValueKind.Null ? null : genreProp.GetString();
 
         if (update.TryGetProperty("totalPages", out var pagesProp)) 
-            book.TotalPages = pagesProp.ValueKind == System.Text.Json.JsonValueKind.Null ? null : pagesProp.GetInt32();
+            book.TotalPages = pagesProp.ValueKind == JsonValueKind.Null ? null : pagesProp.GetInt32();
 
         if (update.TryGetProperty("publicationYear", out var yearProp)) 
-            book.PublicationYear = yearProp.ValueKind == System.Text.Json.JsonValueKind.Null ? null : yearProp.GetInt32();
+            book.PublicationYear = yearProp.ValueKind == JsonValueKind.Null ? null : yearProp.GetInt32();
 
         if (update.TryGetProperty("review", out var reviewProp)) 
-            book.Review = reviewProp.ValueKind == System.Text.Json.JsonValueKind.Null ? null : reviewProp.GetString();
+            book.Review = reviewProp.ValueKind == JsonValueKind.Null ? null : reviewProp.GetString();
 
         if (update.TryGetProperty("rating", out var ratingProp)) 
-            book.Rating = ratingProp.ValueKind == System.Text.Json.JsonValueKind.Null ? null : ratingProp.GetInt32();
+            book.Rating = ratingProp.ValueKind == JsonValueKind.Null ? null : ratingProp.GetInt32();
 
         if (update.TryGetProperty("status", out var statusProp))
             book.Status = (ReadingStatus)statusProp.GetInt32();
@@ -245,7 +274,6 @@ public class BookService : IBookService
         var book = await GetBookByIdAsync(id, userId, userRole);
         if (book == null) return null;
 
-        // Only owner can update reading status
         if (book.UserId != userId && userRole != "Admin") return null;
 
         book.Status = status;
@@ -257,19 +285,11 @@ public class BookService : IBookService
     public async Task<Book?> UpdateProgressAsync(Guid id, int progress, Guid userId, string userRole)
     {
         var book = await GetBookByIdAsync(id, userId, userRole);
-        if (book == null) {
-            _logger.LogWarning("UpdateProgress: Volume {BookId} not found.", id);
-            return null;
-        }
-        if (book.UserId != userId && userRole != "Admin") {
-            _logger.LogWarning("UpdateProgress: Unauthorized attempt on volume {BookId} by user {UserId}.", id, userId);
-            return null;
-        }
+        if (book == null) return null;
+        
+        if (book.UserId != userId && userRole != "Admin") return null;
 
-        if (book.Status != ReadingStatus.Reading && userRole != "Admin") {
-            _logger.LogWarning("UpdateProgress: Attempted progress update on volume {BookId} with status {Status}.", id, book.Status);
-            return null;
-        }
+        if (book.Status != ReadingStatus.Reading && userRole != "Admin") return null;
 
         book.CurrentPage = progress;
         if (book.TotalPages.HasValue && progress == book.TotalPages.Value)
@@ -305,20 +325,32 @@ public class BookService : IBookService
 
     public async Task<object> GetStatsAsync(Guid userId)
     {
-        var books = await _context.Books.Where(b => b.UserId == userId).ToListAsync();
+        // Optimized with async aggregations on the DB side
         var currentYear = DateTime.UtcNow.Year;
+        
+        var totalBooks = await _context.Books.CountAsync(b => b.UserId == userId);
+        var readBooks = await _context.Books.CountAsync(b => b.UserId == userId && b.Status == ReadingStatus.Read);
+        var booksReading = await _context.Books.CountAsync(b => b.UserId == userId && b.Status == ReadingStatus.Reading);
+        var booksReadThisYear = await _context.Books.CountAsync(b => b.UserId == userId && b.Status == ReadingStatus.Read && b.UpdatedAt.Year == currentYear);
+        var totalPagesRead = await _context.Books.Where(b => b.UserId == userId).SumAsync(b => b.CurrentPage);
+        
         var goal = await _context.ReadingGoals.FirstOrDefaultAsync(g => g.UserId == userId && g.TargetYear == currentYear);
+        
+        var genreDistribution = await _context.Books
+            .Where(b => b.UserId == userId)
+            .GroupBy(b => b.Genre ?? "Uncategorized")
+            .Select(g => new { Genre = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Genre, x => x.Count);
         
         return new
         {
-            totalBooks = books.Count,
-            readBooks = books.Count(b => b.Status == ReadingStatus.Read),
-            booksReading = books.Count(b => b.Status == ReadingStatus.Reading),
-            booksReadThisYear = books.Count(b => b.Status == ReadingStatus.Read && b.UpdatedAt.Year == currentYear),
-            totalPagesRead = books.Sum(b => b.CurrentPage),
+            totalBooks,
+            readBooks,
+            booksReading,
+            booksReadThisYear,
+            totalPagesRead,
             yearlyGoal = goal?.GoalCount ?? 0,
-            genreDistribution = books.GroupBy(b => b.Genre ?? "Uncategorized")
-                                     .ToDictionary(g => g.Key, g => g.Count())
+            genreDistribution
         };
     }
 
@@ -326,15 +358,24 @@ public class BookService : IBookService
     {
         var books = await _context.Books.Where(b => b.UserId == userId).ToListAsync();
         
-        var csv = new StringBuilder();
-        csv.AppendLine("Title,Author,ISBN,Genre,Status,CurrentPage,TotalPages,Rating");
-
-        foreach (var book in books)
+        using var memoryStream = new MemoryStream();
+        using (var writer = new StreamWriter(memoryStream, Encoding.UTF8))
+        using (var csv = new CsvHelper.CsvWriter(writer, System.Globalization.CultureInfo.InvariantCulture))
         {
-            csv.AppendLine($"{book.Title},{book.Author},{book.ISBN},{book.Genre},{book.Status},{book.CurrentPage},{book.TotalPages},{book.Rating}");
+            // CsvHelper handles escaping automatically to prevent CSV injection
+            await csv.WriteRecordsAsync(books.Select(b => new {
+                b.Title,
+                b.Author,
+                b.ISBN,
+                b.Genre,
+                Status = b.Status.ToString(),
+                b.CurrentPage,
+                b.TotalPages,
+                b.Rating
+            }));
         }
 
-        return Encoding.UTF8.GetBytes(csv.ToString());
+        return memoryStream.ToArray();
     }
 
     public async Task<ReadingGoal> SetGoalAsync(ReadingGoal goal, Guid userId)
@@ -353,30 +394,31 @@ public class BookService : IBookService
         return goal;
     }
 
-    public async Task<Book> CreateBookWithFilesAsync(Book book, Guid userId, string? pdfUrl, string? coverUrl)
+    public async Task<Book> CreateBookWithFilesAsync(BookCreateDto bookDto, Guid userId, string? pdfUrl, string? coverUrl)
     {
         var user = await _context.Users.FindAsync(userId);
-        book.UserId = userId;
-        book.OwnerRole = user?.Role ?? "User";
-        book.PdfUrl = pdfUrl;
-        book.CoverImageUrl = coverUrl;
+        
+        var book = new Book
+        {
+            Title = bookDto.Title,
+            Author = bookDto.Author,
+            ISBN = bookDto.ISBN,
+            Genre = bookDto.Genre,
+            TotalPages = bookDto.TotalPages,
+            PublicationYear = bookDto.PublicationYear,
+            UserId = userId,
+            OwnerRole = user?.Role ?? "User",
+            PdfUrl = pdfUrl,
+            CoverImageUrl = coverUrl
+        };
 
         if (!string.Equals(book.OwnerRole, "Admin", StringComparison.OrdinalIgnoreCase))
         {
-            var requestedPublic = book.ModerationStatus == ModerationStatus.Pending || book.Visibility == BookVisibility.Public;
             book.Visibility = BookVisibility.Private;
             book.IsApproved = false;
             book.ModerationStatus = ModerationStatus.None;
             _context.Books.Add(book);
             await _context.SaveChangesAsync();
-
-            if (requestedPublic)
-            {
-                var rec = new BookRecommendation { BookId = book.Id, UserId = userId, Status = ModerationStatus.Pending };
-                book.ModerationStatus = ModerationStatus.Pending;
-                _context.BookRecommendations.Add(rec);
-                await _context.SaveChangesAsync();
-            }
         }
         else
         {
@@ -390,14 +432,12 @@ public class BookService : IBookService
         return book;
     }
 
-    // Recommendation Implementation
     public async Task<BookRecommendation> CreateRecommendationAsync(Guid bookId, Guid userId)
     {
         var book = await _context.Books.FindAsync(bookId);
         if (book == null || book.UserId != userId) 
             throw new InvalidOperationException("Archival record not found or access denied.");
 
-        // Check for existing pending recommendation
         var existing = await _context.BookRecommendations.FirstOrDefaultAsync(r => r.BookId == bookId && r.Status == ModerationStatus.Pending);
         if (existing != null) return existing;
 

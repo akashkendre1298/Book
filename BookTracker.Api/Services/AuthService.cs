@@ -12,10 +12,21 @@ namespace BookTracker.Api.Services;
 public class AuthService : IAuthService
 {
     private readonly IConfiguration _config;
+    private readonly string _jwtKey;
+    private readonly string _jwtIssuer;
+    private readonly string _jwtAudience;
 
     public AuthService(IConfiguration config)
     {
         _config = config;
+        _jwtKey = _config["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key is not configured. Authentication cannot proceed.");
+        _jwtIssuer = _config["Jwt:Issuer"] ?? "BookTracker";
+        _jwtAudience = _config["Jwt:Audience"] ?? "BookTrackerUsers";
+
+        if (_jwtKey.Length < 32)
+        {
+            throw new InvalidOperationException("JWT Key is too short. Minimum 32 characters required for HMAC-SHA256.");
+        }
     }
 
     public string HashPassword(string password) => BCrypt.Net.BCrypt.HashPassword(password);
@@ -37,7 +48,7 @@ public class AuthService : IAuthService
 
     public string GenerateJwtToken(User user)
     {
-        var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"] ?? "super_secret_key_1234567890123456"));
+        var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtKey));
         var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
         var claims = new[]
@@ -48,10 +59,10 @@ public class AuthService : IAuthService
         };
 
         var token = new JwtSecurityToken(
-            issuer: _config["Jwt:Issuer"] ?? "BookTracker",
-            audience: _config["Jwt:Audience"] ?? "BookTrackerUsers",
+            issuer: _jwtIssuer,
+            audience: _jwtAudience,
             claims: claims,
-            expires: DateTime.Now.AddDays(7),
+            expires: DateTime.UtcNow.AddDays(7), // Production should use shorter lived tokens + refresh tokens
             signingCredentials: credentials);
 
         return new JwtSecurityTokenHandler().WriteToken(token);

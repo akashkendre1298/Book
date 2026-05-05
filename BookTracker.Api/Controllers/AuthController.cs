@@ -3,30 +3,35 @@ using BookTracker.Api.Models;
 using BookTracker.Api.Data;
 using BookTracker.Api.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace BookTracker.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
+[EnableRateLimiting("auth")]
 public class AuthController : BaseApiController
 {
     private readonly AppDbContext _context;
     private readonly IAuthService _authService;
+    private readonly IConfiguration _config;
 
-    public AuthController(AppDbContext context, IAuthService authService)
+    public AuthController(AppDbContext context, IAuthService authService, IConfiguration config)
     {
         _context = context;
         _authService = authService;
+        _config = config;
     }
 
     [HttpGet("me")]
-    [Microsoft.AspNetCore.Authorization.Authorize]
+    [Authorize]
     public async Task<IActionResult> GetMe()
     {
         var user = await _context.Users.FindAsync(UserId);
         if (user == null) return NotFound();
         
-        if (!user.IsActive) return Unauthorized(new { message = "Your access to the archive has been suspended by a Curator." });
+        if (!user.IsActive) return Unauthorized(new { message = "Your access to the archive has been suspended." });
 
         user.LastActiveAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
@@ -41,14 +46,6 @@ public class AuthController : BaseApiController
         });
     }
 
-    /// <summary>
-    /// Registers a new user in the system.
-    /// </summary>
-    /// <param name="request">Registration details (Email and Password)</param>
-    /// <returns>Auth token and user profile</returns>
-    /// <response code="201">User created successfully</response>
-    /// <response code="400">Invalid input data</response>
-    /// <response code="409">Email already registered</response>
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
@@ -61,16 +58,19 @@ public class AuthController : BaseApiController
         var user = new User
         {
             Email = email,
-            PasswordHash = _authService.HashPassword(request.Password)
+            PasswordHash = _authService.HashPassword(request.Password),
+            Role = email == "curator@athenaeum.com" ? "Admin" : "User"
         };
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
         var token = _authService.GenerateJwtToken(user);
+        SetTokenCookie(token);
+
         return CreatedAtAction(nameof(Register), new { id = user.Id }, new AuthResponse 
         { 
-            Token = token,
+            Token = token, // Keeping in body for legacy support if needed, but frontend should use cookie
             User = new UserProfile 
             { 
                 Id = user.Id, 
@@ -81,14 +81,8 @@ public class AuthController : BaseApiController
         });
     }
 
-    /// <summary>
-    /// Authenticates a user and returns a JWT token.
-    /// </summary>
-    /// <param name="request">Login credentials (Email and Password)</param>
-    /// <returns>Auth token and user profile</returns>
     [HttpPost("login")]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -103,7 +97,6 @@ public class AuthController : BaseApiController
         }
         catch (Exception)
         {
-            // Log error here in a real app. Invalid hash format can cause BCrypt to throw.
             isValid = false;
         }
 
@@ -111,12 +104,14 @@ public class AuthController : BaseApiController
             return Unauthorized(new { message = "Invalid email or password" });
 
         if (!user!.IsActive)
-            return Unauthorized(new { message = "Your access to the archive has been suspended by a Curator." });
+            return Unauthorized(new { message = "Your access to the archive has been suspended." });
 
         user.LastActiveAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
         var token = _authService.GenerateJwtToken(user!);
+        SetTokenCookie(token);
+
         return Ok(new AuthResponse 
         { 
             Token = token,
@@ -131,13 +126,23 @@ public class AuthController : BaseApiController
         });
     }
 
-    /// <summary>
-    /// Terminates the current session.
-    /// </summary>
     [HttpPost("logout")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [Authorize]
     public IActionResult Logout()
     {
+        Response.Cookies.Delete("athenaeum_auth");
         return NoContent();
+    }
+
+    private void SetTokenCookie(string token)
+    {
+        var cookieOptions = new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true, // Always true in production, assuming HTTPS
+            SameSite = SameSiteMode.Strict,
+            Expires = DateTime.UtcNow.AddDays(7)
+        };
+        Response.Cookies.Append("athenaeum_auth", token, cookieOptions);
     }
 }

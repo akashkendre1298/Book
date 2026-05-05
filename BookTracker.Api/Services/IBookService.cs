@@ -1,16 +1,17 @@
 using BookTracker.Api.Models;
+using BookTracker.Api.Models.Dtos;
 
 namespace BookTracker.Api.Services;
 
 public interface IBookService
 {
-    Task<List<Book>> GetMyCollectionAsync(Guid userId, string? query, ReadingStatus? status, string? sortBy);
-    Task<List<Book>> GetPublicLibraryAsync(string? query, string? genre, string? sortBy);
-    Task<List<Book>> GetCompletedBooksAsync(Guid userId, string? query, string? sortBy);
+    Task<(List<Book> Items, int TotalCount)> GetMyCollectionAsync(Guid userId, string? query, ReadingStatus? status, string? sortBy, int pageNumber = 1, int pageSize = 20);
+    Task<(List<Book> Items, int TotalCount)> GetPublicLibraryAsync(string? query, string? genre, string? sortBy, int pageNumber = 1, int pageSize = 20);
+    Task<(List<Book> Items, int TotalCount)> GetCompletedBooksAsync(Guid userId, string? query, string? sortBy, int pageNumber = 1, int pageSize = 20);
     Task<Book?> GetBookByIdAsync(Guid id, Guid userId, string userRole);
-    Task<Book> CreateBookAsync(Book book, Guid userId);
-    Task<Book> CreateBookWithFilesAsync(Book book, Guid userId, string? pdfUrl, string? coverUrl);
-    Task<Book?> UpdateBookAsync(Guid id, Book update, Guid userId, string userRole);
+    Task<Book> CreateBookAsync(BookCreateDto bookDto, Guid userId);
+    Task<Book> CreateBookWithFilesAsync(BookCreateDto bookDto, Guid userId, string? pdfUrl, string? coverUrl);
+    Task<Book?> UpdateBookAsync(Guid id, BookUpdateDto updateDto, Guid userId, string userRole);
     Task<Book?> PatchBookAsync(Guid id, System.Text.Json.JsonElement update, Guid userId, string userRole);
     Task<bool> DeleteBookAsync(Guid id, Guid userId, string userRole);
     Task<Book?> UpdateStatusAsync(Guid id, ReadingStatus status, Guid userId, string userRole);

@@ -1,73 +1,134 @@
 # 🏛️ Athenaeum: The Private Archive
 
-[![Full-Stack Verification](https://img.shields.io/badge/Tests-117%20Passed-success?style=for-the-badge&logo=dotnet)](./Doc/tdd_test_log.md)
+[![Backend Tests](https://img.shields.io/badge/xUnit-48%20Passed-success?style=for-the-badge&logo=dotnet)](./Doc/tdd_test_log.md)
+[![Frontend Tests](https://img.shields.io/badge/Vitest-69%20Passed-success?style=for-the-badge&logo=vite)](./Doc/tdd_test_log.md)
 [![KPI Fulfillment](https://img.shields.io/badge/KPIs-100%25-clay?style=for-the-badge)](./Doc/kpi_audit_report.md)
-[![Architecture](https://img.shields.io/badge/Stack-.NET%2010%20%2B%20React%2019-sage?style=for-the-badge)](./README.md)
+[![Stack](https://img.shields.io/badge/Stack-.NET%2010%20%2B%20React%2019-sage?style=for-the-badge)](./README.md)
 
-**Athenaeum** is a premium, full-stack book archiving system designed for the modern bibliophile. It combines the rigorous architectural standards of **.NET 10** with a high-end, **executive aesthetic** to provide a secure and sophisticated space for your private collection.
-
----
-
-## 🌟 The Archivist's Experience
-
-- **🏛️ Executive Dashboard**: A high-contrast "Archivist's Desk" view with glassmorphism stats and genre distribution.
-- **📚 Folio Management**: Complete lifecycle tracking—from ISBN registration to persistent cover art uploads.
-- **🎯 Annual Ambitions**: Set and track personalized reading goals with dynamic fulfillment gauges.
-- **🔍 The Grand Index**: Advanced multi-criteria search and filtering for thousands of volumes.
-- **📂 Data Portability**: Instant CSV export in RFC-4180 format for complete control over your library data.
-- **🛡️ Secure Vault**: Industry-standard JWT authentication with encrypted password storage via BCrypt.
+**Athenaeum** is a premium, full-stack book archiving and social reading platform. It combines **.NET 10** and **React 19** to deliver a secure, multi-tenant library experience — complete with role-based access control, public/private collections, admin moderation, and cover art uploads.
 
 ---
 
-## 🛠️ Technical Pedigree
+## 🌟 Feature Highlights
 
-| Component | Technology | Role |
+| Area | Feature |
+|------|---------|
+| 📚 **Collection Management** | Add, edit, delete books with cover image & PDF uploads |
+| 🔄 **Reading Tracker** | Track status (Want to Read / Reading / Finished / Dropped), current page, rating & review |
+| 🌍 **Public Library** | Browse all admin-approved public books with search & genre filters |
+| 📩 **Moderation Flow** | Users can request to publish private books; Admins approve or reject via a dedicated queue |
+| 🛡️ **Admin Dashboard** | System metrics, user management (activate/deactivate/delete), full library control |
+| 🔍 **Search & Filter** | Full-text search by title/author and genre-based category filtering |
+| 📤 **CSV Export** | One-click export of personal collection in RFC-4180 format |
+| 🔒 **Secure Auth** | HttpOnly JWT cookies, BCrypt password hashing, rate-limited login |
+| 📱 **Fully Responsive** | Mobile-first layout with hamburger menu, fluid typography, and adaptive grids |
+
+---
+
+## 🛠️ Technical Stack
+
+| Component | Technology | Notes |
 | :--- | :--- | :--- |
-| **Backend** | `.NET 10 Core` | Enterprise-grade RESTful API |
-| **Frontend** | `React 19 (Vite)` | High-performance SPA with Framer Motion |
-| **Styling** | `Vanilla CSS` | Custom "Athenaeum" executive design system |
-| **Database** | `PostgreSQL` | Relational storage with EF Core Migrations |
-| **Documentation** | `Scalar & Swagger` | Dual-portal API documentation |
-| **Deployment** | `Docker Compose` | Multi-container orchestration |
+| **Backend** | `.NET 10 Web API` | Clean architecture, Service pattern, EF Core |
+| **Frontend** | `React 19 (Vite + Tailwind CSS)` | Framer Motion animations, responsive design |
+| **Database** | `PostgreSQL` | EF Core Migrations, indexed queries |
+| **Auth** | `JWT + HttpOnly Cookies` | BCrypt hashing, role-based authorization |
+| **File Storage** | `Local /uploads/` | Covers in `/covers/`, PDFs in `/books/` |
+| **API Docs** | `Scalar + OpenAPI` | Available at `/scalar` in development |
+| **Deployment** | `Docker Compose` | Multi-container: API + Client + PostgreSQL |
+| **Rate Limiting** | `ASP.NET Core Rate Limiter` | 5 auth attempts/min, 10 API req/sec |
 
 ---
 
-## 🚀 Deployment Folio
+## 🚀 Getting Started
 
-### 🐋 The Docker Way (Recommended)
-Launch the entire Athenaeum ecosystem in seconds:
+### 🐋 Docker (Recommended)
 ```bash
 docker-compose up --build
 ```
-- **Library Access**: `http://localhost:3000`
-- **Archive API**: `http://localhost:5000`
-- **Grand Index (Scalar)**: `http://localhost:5000/scalar`
+| Service | URL |
+|---------|-----|
+| Frontend | `http://localhost:3000` |
+| API | `http://localhost:5000` |
+| API Docs (Scalar) | `http://localhost:5000/scalar` |
 
 ### 💻 Local Development
-1. **Initialize API**: `cd BookTracker.Api && dotnet run` (Listens on `:5128`)
-2. **Initialize Frontend**: `cd BookTracker.Client && npm run dev` (Listens on `:5173`)
+```bash
+# Terminal 1 — Backend API (port 5128)
+cd BookTracker.Api
+dotnet run
+
+# Terminal 2 — Frontend (port 5173)
+cd BookTracker.Client
+npm install && npm run dev
+```
 
 ---
 
-## 🧪 Quality Assurance & TDD
+## 🔑 Seeded Accounts
 
-The Athenaeum is built on a foundation of **100% Test Coverage**. We follow a strict TDD (Red-Green-Refactor) lifecycle to ensure that every feature is verified before implementation.
+> The database is pre-seeded with the following accounts and 15 real book entries.
 
-- **Backend (xUnit)**: 48 Tests Passed
-- **Frontend (Vitest)**: 69 Tests Passed
-- **Total Verification**: **117 PASSED**
+| Role | Email | Password |
+|------|-------|----------|
+| **Admin** | `akash@gmail.com` | `akash123` |
+| **User** | `suraj@gmail.com` | `suraj123` |
 
-> [!TIP]
-> Detailed TDD logs and KPI audit reports are available in the [Doc/](./Doc/) folder, documenting the verified status of all 39 business requirements.
+### 📖 Seeded Books (15 total)
+
+**Admin Books — Public (10):**
+The Shining · 1984 · The Hobbit · To Kill a Mockingbird · Dracula · Dune · Pride and Prejudice · The Catcher in the Rye · Frankenstein · The Great Gatsby
+
+**User Books — Private (5):**
+It · Neuromancer · The Name of the Wind · Fahrenheit 451 · The Haunting of Hill House
+
+---
+
+## 🧪 Quality Assurance
+
+Built on a TDD foundation with **117 verified tests** across the full stack.
+
+| Suite | Count | Status |
+|-------|-------|--------|
+| Backend (xUnit) | 48 | ✅ All Passed |
+| Frontend (Vitest) | 69 | ✅ All Passed |
+| **Total** | **117** | ✅ |
+
+> Full TDD logs and KPI audit reports are in the [Doc/](./Doc/) folder.
 
 ---
 
 ## 📂 Repository Structure
 
-- `BookTracker.Api/`: The engine. Clean architecture with Service-Repository pattern.
-- `BookTracker.Client/`: The face. Responsive, accessible, and high-performance React UI.
-- `Doc/`: The blueprints. Contains PRDs, KPI lists, and TDD audit logs.
-- `uploads/`: The persistent volume for book cover art.
+```
+Athenaeum/
+├── BookTracker.Api/         # .NET 10 Web API
+│   ├── Controllers/         # Auth, Books, Admin, Dashboard
+│   ├── Services/            # Business logic layer
+│   ├── Data/                # EF Core DbContext + Seeder
+│   ├── Models/              # Domain models + DTOs
+│   └── uploads/             # Cover images & PDF manuscripts
+├── BookTracker.Client/      # React 19 SPA
+│   └── src/
+│       ├── pages/           # Dashboard, Collection, Detail, Admin
+│       ├── components/      # Layout, BookCard, etc.
+│       └── api/             # Axios instance + helpers
+├── BookTracker.Tests/       # xUnit integration tests
+├── Doc/                     # PRD, KPI, API docs, flow diagrams
+│   ├── api_documentation.md
+│   ├── e2e-flow-diagram.md
+│   ├── user-flow-diagram.md
+│   └── kpi_audit_report.md
+├── Dockerfile
+├── docker-compose.yml
+└── README.md
+```
+
+---
+
+## 📐 User Flow
+
+See the complete end-to-end flow in [`Doc/e2e-flow-diagram.md`](./Doc/e2e-flow-diagram.md), covering both the User and Admin journeys from login to every terminal state via Mermaid diagrams.
 
 ---
 

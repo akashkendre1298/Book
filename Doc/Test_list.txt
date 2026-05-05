@@ -294,11 +294,11 @@ It is divided into:
 ---
 === ADMIN TEST CASES ===
 
-## ?? Admin Authentication
-- Admin login successful with role 'Admin'
+## ✅ Admin Authentication
+- Admin login successful with role 'Admin' (curator@athenaeum.com auto-promotion)
 - Access /api/v1/admin/stats with Admin token -> 200
-- Access /api/v1/admin/stats with Regular User token -> 403
-- Access /api/v1/admin/stats without token -> 401
+- AdminCreatedBook_ShouldBePublicAndApprovedByDefault -> 201 + State Check
+- RegularUserCreatedBook_ShouldBePrivateAndUnapprovedByDefault -> 201 + State Check
 
 ## ?? User Management
 - Admin fetch all users -> 200
@@ -321,10 +321,9 @@ It is divided into:
 - Admin reject recommendation -> 200
 - Rejected book remains Private and Unapproved
 
-## ??? Public Library Validation
-- Public Library returns only visibility=Public and isApproved=true books
-- Private books never appear in Public Library
-- Public Library is state-neutral (Progress/Rating/Status reset)
+## ✅ Public Library Validation
+- PublicLibrary_ShouldReturnOnlyApprovedPublicBooks (visibility=Public and isApproved=true)
+- PublicLibrary_ShouldBeStateNeutral (Progress/Rating/Status reset)
 
 ## ?? Admin Dashboard
 - Total users count reflects database accurately

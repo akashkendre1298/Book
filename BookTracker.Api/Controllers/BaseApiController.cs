@@ -21,4 +21,12 @@ public abstract class BaseApiController : ControllerBase
             return User.FindFirstValue(ClaimTypes.Role) ?? "User";
         }
     }
+
+    protected string UserEmail
+    {
+        get
+        {
+            return User.FindFirstValue(ClaimTypes.Email) ?? "System";
+        }
+    }
 }

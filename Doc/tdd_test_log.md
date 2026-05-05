@@ -75,7 +75,7 @@
 ---
 
 ## ✅ Phase 2: GREEN (Final Verification)
-*In this phase, all 138+ requirements are verified as PASSED.*
+*In this phase, all 142 requirements are verified as PASSED.*
 
 ### ⚙️ Backend (GREEN)
 | Status | Category | Test Case | Current Result |
@@ -93,8 +93,8 @@
 | ✅ | Auth API | Login non-existing user → 401 | PASSED |
 | ✅ | Auth API | Protected route w/ token → 200 | PASSED |
 | ✅ | Auth API | Protected route w/o token → 401 | PASSED |
-| ✅ | Auth API | Logout clears session | PASSED |
-| ✅ | Admin Auth | Admin login role check | PASSED |
+| ✅ | Auth API | Logout clears session | PASSED (NoContent) |
+| ✅ | Admin Auth | Admin login role check | PASSED (Auto-promotion) |
 | ✅ | Admin Auth | Admin route protection | PASSED |
 | ✅ | User Mgmt | Fetch all users | PASSED |
 | ✅ | User Mgmt | Block/Unblock logic | PASSED |
@@ -103,21 +103,21 @@
 | ✅ | Books | Validate required fields | PASSED |
 | ✅ | Books | Validate ISBN format | PASSED |
 | ✅ | Books | Publication year range | PASSED |
-| ✅ | Books API | Create book (valid) → 201 | PASSED |
+| ✅ | Books API | Create book (valid) → 201 | PASSED (DTO-based) |
 | ✅ | Library | Admin upload auto-approve | PASSED |
 | ✅ | Library | Admin-added public visibility | PASSED |
 | ✅ | Library | Admin edit/delete global | PASSED |
 | ✅ | Moderation | Fetch pending requests | PASSED |
 | ✅ | Moderation | Approve request → Public | PASSED |
 | ✅ | Moderation | Reject request → Private | PASSED |
-| ✅ | Validation | Public Library state-neutral | PASSED |
+| ✅ | Validation | Public Library state-neutral | PASSED (Reset logic verified) |
 | ✅ | Dashboard | Admin stats aggregation | PASSED |
 | ✅ | Upload | Upload valid image | PASSED |
 | ✅ | Books Edge | Duplicate ISBN | PASSED |
 | ✅ | Progress | Progress ≤ total pages | PASSED |
-| ✅ | Progress API | Update reading status → 200 | PASSED |
-| ✅ | Progress API | Update progress → 200 | PASSED |
-| ✅ | Search | Filter by title/author/ISBN | PASSED |
+| ✅ | Progress API | Update reading status → 200 | PASSED (Enum support) |
+| ✅ | Progress API | Update progress → 200 | PASSED (Status dependency) |
+| ✅ | Search | Filter by title/author/ISBN | PASSED (PagedResult) |
 | ✅ | Stats | Total books calculation | PASSED |
 | ✅ | Docker | App starts with compose | PASSED |
 
@@ -154,9 +154,9 @@
 ---
 
 ## 🚀 Final Summary
-- **Total Test Cases**: 138
+- **Total Test Cases**: 142 
 - **Failing (RED)**: 0
-- **Passing (GREEN)**: 138
+- **Passing (GREEN)**: 142
 - **Overall Completion**: **100%**
 
 > [!TIP]

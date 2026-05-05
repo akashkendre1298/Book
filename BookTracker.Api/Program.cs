@@ -3,9 +3,10 @@ using BookTracker.Api.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.AspNetCore.OpenApi;
-using Scalar.AspNetCore;
 using System.Text;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,11 +14,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers()
     .AddJsonOptions(options => 
     {
-        // options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
     });
+
 builder.Services.AddOpenApi(options =>
 {
-    // Minimal configuration for .NET 10 stability
     options.AddDocumentTransformer((document, context, cancellationToken) =>
     {
         document.Info.Title = "Athenaeum API";
@@ -27,32 +28,33 @@ builder.Services.AddOpenApi(options =>
     });
 });
 
-// Database - Use PostgreSQL in production, In-Memory for dev/testing
+// Database
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 if (builder.Environment.IsEnvironment("Testing"))
 {
     builder.Services.AddDbContext<AppDbContext>(options =>
         options.UseInMemoryDatabase("BookTrackerTest"));
 }
+else if (!string.IsNullOrEmpty(connectionString))
+{
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseNpgsql(connectionString));
+}
 else
 {
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-    if (!string.IsNullOrEmpty(connectionString))
-    {
-        builder.Services.AddDbContext<AppDbContext>(options =>
-            options.UseNpgsql(connectionString));
-    }
-    else
-    {
-        builder.Services.AddDbContext<AppDbContext>(options =>
-            options.UseInMemoryDatabase("BookTrackerDev"));
-    }
+    // Fallback to SQLite or local PG if configured, otherwise In-Memory for safety
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseInMemoryDatabase("BookTrackerDev"));
 }
 
 // Custom Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IBookService, BookService>();
+builder.Services.AddScoped<IAuditService, AuditService>();
+builder.Services.AddScoped<IFileStorageService, FileStorageService>();
 
 // Authentication
+var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key missing in configuration.");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -64,18 +66,55 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "BookTracker",
             ValidAudience = builder.Configuration["Jwt:Audience"] ?? "BookTrackerUsers",
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? "super_secret_key_1234567890123456"))
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+            ClockSkew = TimeSpan.Zero
+        };
+
+        // Allow token to be read from a Secure HttpOnly cookie
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var token = context.Request.Cookies["athenaeum_auth"];
+                if (!string.IsNullOrEmpty(token))
+                {
+                    context.Token = token;
+                }
+                return Task.CompletedTask;
+            }
         };
     });
 
-// CORS
+// Rate Limiting
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    
+    options.AddFixedWindowLimiter("auth", opt =>
+    {
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.PermitLimit = 5; // 5 attempts per minute
+        opt.QueueLimit = 0;
+    });
+
+    options.AddFixedWindowLimiter("api", opt =>
+    {
+        opt.Window = TimeSpan.FromSeconds(1);
+        opt.PermitLimit = 10; // 10 requests per second
+        opt.QueueLimit = 2;
+        opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+    });
+});
+
+// CORS - Tightened for Cookie support
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy("WebApp", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins(builder.Configuration["AllowedOrigins"]?.Split(',') ?? new[] { "http://localhost:5173", "http://localhost:3000" })
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials(); // Required for HttpOnly cookies
     });
 });
 
@@ -85,28 +124,12 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
-    
-    // Modern Scalar UI
-    app.MapScalarApiReference(options =>
-    {
-        options.WithTitle("Athenaeum API Documentation")
-               .WithTheme(ScalarTheme.Moon);
-    });
-
-    // Classic Swagger UI
-    app.UseSwaggerUI(options =>
-    {
-        options.SwaggerEndpoint("/openapi/v1.json", "Athenaeum API v1");
-        options.RoutePrefix = "swagger"; // Available at /swagger
-    });
+    app.MapScalarApiReference();
 }
 
-if (!app.Environment.IsDevelopment())
-{
-    app.UseHttpsRedirection();
-}
+app.UseHttpsRedirection();
 
-// Serve uploaded book covers
+// Serve uploaded book covers (Strictly validated in FileStorageService)
 var uploadsPath = Path.Combine(app.Environment.ContentRootPath, "uploads");
 if (!Directory.Exists(uploadsPath)) Directory.CreateDirectory(uploadsPath);
 
@@ -116,7 +139,8 @@ app.UseStaticFiles(new StaticFileOptions
     RequestPath = "/uploads"
 });
 
-app.UseCors("AllowAll");
+app.UseCors("WebApp");
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

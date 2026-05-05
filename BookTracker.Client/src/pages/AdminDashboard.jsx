@@ -16,25 +16,33 @@ const AdminDashboard = () => {
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState('all');
+  const [userPage, setUserPage] = useState(1);
+  const [userTotalPages, setUserTotalPages] = useState(1);
+  const [libraryPage, setLibraryPage] = useState(1);
+  const [libraryTotalPages, setLibraryTotalPages] = useState(1);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [activeTab, userPage, libraryPage]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [statsRes, usersRes, booksRes, recommendationsRes] = await Promise.all([
-        api.get('/admin/stats'),
-        api.get('/admin/users'),
-        api.get('/admin/library'),
-        api.get('/admin/recommendations')
-      ]);
-      setStats(statsRes.data);
-      setUsers(usersRes.data);
-      setBooks(booksRes.data);
-      setRecommendations(recommendationsRes.data);
+      if (activeTab === 'metrics') {
+        const statsRes = await api.get('/admin/stats');
+        setStats(statsRes.data);
+      } else if (activeTab === 'users') {
+        const usersRes = await api.get(`/admin/users?page=${userPage}&pageSize=10`);
+        setUsers(usersRes.data.items);
+        setUserTotalPages(Math.ceil(usersRes.data.totalCount / 10));
+      } else if (activeTab === 'library') {
+        const booksRes = await api.get(`/admin/library?page=${libraryPage}&pageSize=10`);
+        setBooks(booksRes.data.items);
+        setLibraryTotalPages(Math.ceil(booksRes.data.totalCount / 10));
+      } else if (activeTab === 'moderation') {
+        const recommendationsRes = await api.get('/admin/recommendations');
+        setRecommendations(recommendationsRes.data);
+      }
     } catch (error) {
       console.error('Error fetching admin data:', error);
     } finally {
@@ -106,7 +114,7 @@ const AdminDashboard = () => {
     }
   };
 
-  if (loading && !stats) {
+  if (loading && !stats && !users.length && !books.length && !recommendations.length) {
     return (
       <div className="flex flex-col justify-center items-center h-[60vh] gap-6">
         <div className="w-12 h-12 border-t-2 border-ink rounded-full animate-spin"></div>
@@ -128,10 +136,10 @@ const AdminDashboard = () => {
     <div className="space-y-12 animate-in fade-in duration-700">
       {/* Curator Header */}
       <header className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-8 pb-10 border-b border-ink/10">
-        <div>
+        <div className="w-full max-w-full overflow-hidden">
           <span className="font-sans text-[10px] uppercase tracking-[0.4em] text-clay mb-3 block">High Curator Jurisdiction</span>
-          <h1 className="text-5xl md:text-6xl mb-4 leading-tight">Master Controls</h1>
-          <nav className="flex gap-8 mt-6 overflow-x-auto pb-2 scrollbar-hide">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl mb-4 leading-tight">Master Controls</h1>
+          <nav className="flex gap-4 md:gap-8 mt-6 overflow-x-auto pb-2 scrollbar-hide">
             {[
               { id: 'metrics', label: 'Dashboard', icon: BarChart3 },
               { id: 'users', label: 'Users', icon: Users },
@@ -145,7 +153,7 @@ const AdminDashboard = () => {
                   activeTab === tab.id ? 'text-ink font-bold' : 'text-ink/40 hover:text-ink/60'
                 }`}
               >
-                <tab.icon className={`w-4 h-4 ${activeTab === tab.id ? 'text-clay' : ''}`} />
+                <tab.icon className={`w-4 h-4 hidden sm:block ${activeTab === tab.id ? 'text-clay' : ''}`} />
                 <span className="text-[10px] font-sans uppercase tracking-[0.2em]">{tab.label}</span>
                 {tab.count > 0 && (
                   <span className="bg-clay text-paper text-[8px] px-1.5 py-0.5 rounded-full">{tab.count}</span>
@@ -159,13 +167,6 @@ const AdminDashboard = () => {
               </button>
             ))}
           </nav>
-        </div>
-        <div className="bg-ink text-paper px-8 py-5 flex items-center gap-6 shadow-xl rounded-sm">
-          <Shield className="w-8 h-8 text-clay" />
-          <div>
-            <span className="block text-[8px] font-sans uppercase tracking-[0.3em] opacity-50">Archive Integrity</span>
-            <span className="text-sm font-sans font-bold tracking-widest">Optimal Sync</span>
-          </div>
         </div>
       </header>
 
@@ -268,6 +269,20 @@ const AdminDashboard = () => {
                   </tbody>
                 </table>
               </div>
+
+              {userTotalPages > 1 && (
+                <div className="flex justify-center gap-4 mt-8">
+                  {[...Array(userTotalPages)].map((_, i) => (
+                    <button 
+                      key={i} 
+                      onClick={() => setUserPage(i + 1)}
+                      className={`w-8 h-8 flex items-center justify-center text-xs ${userPage === i + 1 ? 'bg-ink text-paper' : 'bg-paper-darker text-ink/40'}`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                </div>
+              )}
             </motion.div>
           )}
 
@@ -334,6 +349,20 @@ const AdminDashboard = () => {
                   </tbody>
                 </table>
               </div>
+
+              {libraryTotalPages > 1 && (
+                <div className="flex justify-center gap-4 mt-8">
+                  {[...Array(libraryTotalPages)].map((_, i) => (
+                    <button 
+                      key={i} 
+                      onClick={() => setLibraryPage(i + 1)}
+                      className={`w-8 h-8 flex items-center justify-center text-xs ${libraryPage === i + 1 ? 'bg-ink text-paper' : 'bg-paper-darker text-ink/40'}`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {/* Edit Modal */}
               <AnimatePresence>

@@ -32,18 +32,12 @@ const BookDetailPage = () => {
   };
 
   const handleUpdateStatus = async (status) => {
-    console.log('Attempting to update status to:', status, 'for book:', id);
     try {
       const response = await api.patch(`/books/${id}/status`, { status });
-      console.log('Status update successful:', response.data);
       setBook(response.data);
     } catch (error) {
       console.error('Error updating status:', error);
-      if (error.response?.status === 404) {
-        alert('Volume not found or you do not have permission to modify this master record.');
-      } else {
-        alert('Archive update failed. Check connection.');
-      }
+      alert('Archive update failed. Check connection.');
     }
   };
 
@@ -54,8 +48,6 @@ const BookDetailPage = () => {
       const response = await api.patch(`/books/${id}/progress`, { currentPage: page });
       if (response.data) {
         setBook(response.data);
-      } else {
-        console.warn('Archive returned empty record. Synchronization skipped.');
       }
     } catch (error) {
       console.error('Error updating progress:', error);
@@ -97,6 +89,12 @@ const BookDetailPage = () => {
 
   const progressPercent = book.totalPages ? Math.round((book.currentPage / book.totalPages) * 100) : 0;
 
+  const statusMap = {
+    'WantToRead': { label: 'To Read', value: 'WantToRead' },
+    'Reading': { label: 'Reading', value: 'Reading' },
+    'Read': { label: 'Finished', value: 'Read' }
+  };
+
   return (
     <div className="max-w-6xl mx-auto px-6 py-12">
       <button 
@@ -117,41 +115,43 @@ const BookDetailPage = () => {
                 <span className="font-serif italic text-ink/20">Cover image not archived</span>
               </div>
             )}
-            <label className="absolute inset-0 bg-ink/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-              <span className="text-paper text-xs font-sans uppercase tracking-widest font-semibold">Upload New Cover</span>
-              <input type="file" className="hidden" onChange={async (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const formData = new FormData();
-                formData.append('file', file);
-                try {
-                  await api.post(`/books/${id}/cover`, formData, {
-                    headers: { 'Content-Type': 'multipart/form-data' }
-                  });
-                  fetchBook();
-                } catch (error) {
-                  alert('Error uploading cover');
-                }
-              }} />
-            </label>
+            {isOwner && (
+              <label className="absolute inset-0 bg-ink/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                <span className="text-paper text-xs font-sans uppercase tracking-widest font-semibold">Upload New Cover</span>
+                <input type="file" className="hidden" onChange={async (e) => {
+                  const file = e.target.files[0];
+                  if (!file) return;
+                  const formData = new FormData();
+                  formData.append('file', file);
+                  try {
+                    await api.post(`/books/${id}/cover`, formData, {
+                      headers: { 'Content-Type': 'multipart/form-data' }
+                    });
+                    fetchBook();
+                  } catch (error) {
+                    alert(error.response?.data?.message || 'Error uploading cover. Ensure file is an image.');
+                  }
+                }} />
+              </label>
+            )}
           </div>
 
           <div className="mt-8 space-y-6">
             <div>
               <span className="text-[10px] font-sans uppercase tracking-widest text-ink/40 block mb-2">Reading Status</span>
               <div className="flex flex-wrap gap-2">
-                {[0, 1, 2].map((s) => (
+                {Object.values(statusMap).map((s) => (
                   <button
-                    key={s}
-                    onClick={() => isOwner && handleUpdateStatus(s)}
+                    key={s.value}
+                    onClick={() => isOwner && handleUpdateStatus(s.value)}
                     disabled={!isOwner}
                     className={`px-3 py-1 text-[10px] font-sans uppercase tracking-wider border transition-all ${
-                      book.status === s 
+                      book.status === s.value
                         ? 'bg-ink text-paper border-ink' 
                         : 'border-ink/20 text-ink/60 hover:border-ink'
                     } ${!isOwner ? 'cursor-default opacity-80' : 'cursor-pointer'}`}
                   >
-                    {s === 0 ? 'To Read' : s === 1 ? 'Reading' : 'Finished'}
+                    {s.label}
                   </button>
                 ))}
               </div>
@@ -179,15 +179,15 @@ const BookDetailPage = () => {
 
         {/* Book Info Column */}
         <div className="md:col-span-8 lg:col-span-9">
-          <header className="mb-12 border-b border-ink/10 pb-8 flex justify-between items-start">
+          <header className="mb-12 border-b border-ink/10 pb-8 flex flex-col md:flex-row justify-between items-start gap-6">
             <div>
-              <h1 className="text-6xl mb-4 leading-tight">{book.title}</h1>
-              <h2 className="text-3xl font-serif italic text-ink-muted">by {book.author}</h2>
+              <h1 className="text-4xl md:text-6xl mb-4 leading-tight">{book.title}</h1>
+              <h2 className="text-2xl md:text-3xl font-serif italic text-ink-muted">by {book.author}</h2>
             </div>
             {isOwner && (
               <button 
                 onClick={() => navigate(`/books/${id}/edit`)}
-                className="px-6 py-3 border border-ink/10 text-[10px] font-sans uppercase tracking-[0.2em] hover:bg-ink hover:text-paper transition-all"
+                className="px-6 py-3 border border-ink/10 text-[10px] font-sans uppercase tracking-[0.2em] hover:bg-ink hover:text-paper transition-all w-full md:w-auto"
               >
                 Modify Record
               </button>
@@ -223,8 +223,8 @@ const BookDetailPage = () => {
                         type="number" 
                         defaultValue={book.currentPage}
                         onBlur={handleUpdateProgress}
-                        readOnly={!isOwner || book.status !== 1}
-                        className={`w-16 bg-transparent border-b border-ink/20 text-2xl outline-none focus:border-clay transition-colors ${(!isOwner || book.status !== 1) ? 'cursor-default' : ''}`}
+                        readOnly={!isOwner || book.status !== 'Reading'}
+                        className={`w-16 bg-transparent border-b border-ink/20 text-2xl outline-none focus:border-clay transition-colors ${(!isOwner || book.status !== 'Reading') ? 'cursor-default' : ''}`}
                         min="0"
                         max={book.totalPages || 9999}
                       />
@@ -262,21 +262,21 @@ const BookDetailPage = () => {
                 ></textarea>
               </section>
 
-              <div className="flex gap-8 pt-12 items-center">
-                {!book.isApproved && book.visibility === 0 && (
+              <div className="flex flex-col sm:flex-row gap-4 sm:gap-8 pt-12 items-start sm:items-center">
+                {!book.isApproved && (book.visibility === 'Private' || book.visibility === 0) && (
                   <button 
                     onClick={handleRequestPublic}
-                    disabled={book.moderationStatus === 1}
-                    className={`px-8 py-3 bg-clay text-paper text-[10px] font-sans uppercase tracking-[0.2em] hover:bg-clay-dark transition-all shadow-xl ${
-                      book.moderationStatus === 1 ? 'opacity-50 cursor-not-allowed' : ''
+                    disabled={book.moderationStatus === 'Pending' || book.moderationStatus === 1}
+                    className={`px-8 py-3 bg-clay text-paper text-[10px] font-sans uppercase tracking-[0.2em] hover:bg-clay-dark transition-all shadow-xl w-full sm:w-auto ${
+                      (book.moderationStatus === 'Pending' || book.moderationStatus === 1) ? 'opacity-50 cursor-not-allowed' : ''
                     }`}
                   >
-                    {book.moderationStatus === 1 ? 'Pending Approval' : 'Request for Public Library'}
+                    {(book.moderationStatus === 'Pending' || book.moderationStatus === 1) ? 'Pending Approval' : 'Request for Public Library'}
                   </button>
                 )}
                 <button 
                   onClick={handleDelete}
-                  className="text-[10px] font-sans uppercase tracking-widest text-red-800/40 hover:text-red-800 transition-colors"
+                  className="text-[10px] font-sans uppercase tracking-widest text-red-800/40 hover:text-red-800 transition-colors w-full sm:w-auto text-left sm:text-center"
                 >
                   Remove from Library
                 </button>

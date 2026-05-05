@@ -36,15 +36,15 @@ const Dashboard = () => {
       try {
         const [statsRes, readingRes, toReadRes, finishedRes] = await Promise.all([
           api.get('/dashboard/stats'),
-          api.get('/books?status=1'),
-          api.get('/books?status=0'),
-          api.get('/books?status=2&sortBy=dateadded')
+          api.get('/books?status=Reading'),
+          api.get('/books?status=WantToRead'),
+          api.get('/books?status=Read&sortBy=updatedat')
         ]);
 
         setStats(statsRes.data);
-        setCurrentlyReading(readingRes.data.slice(0, 1)); // Featured current book
-        setToRead(toReadRes.data.slice(0, 2)); // Next 2 volumes
-        setRecentlyFinished(finishedRes.data.slice(0, 3)); // Last 3 cataloged
+        setCurrentlyReading(readingRes.data.items?.slice(0, 1) || []); // Featured current book
+        setToRead(toReadRes.data.items?.slice(0, 2) || []); // Next 2 volumes
+        setRecentlyFinished(finishedRes.data.items?.slice(0, 3) || []); // Last 3 cataloged
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
@@ -64,8 +64,8 @@ const Dashboard = () => {
       <header className="mb-20 flex flex-col md:flex-row justify-between items-start md:items-end gap-8">
         <div>
           <span className="font-sans text-[10px] uppercase tracking-[0.4em] text-clay mb-4 block">Curated Collection • Spring 2024</span>
-          <h1 className="text-6xl mb-6">Greetings, Collector.</h1>
-          <p className="font-serif italic text-ink-muted text-xl max-w-2xl leading-relaxed">
+          <h1 className="text-4xl md:text-6xl mb-6">Greetings, Collector.</h1>
+          <p className="font-serif italic text-ink-muted text-lg md:text-xl max-w-2xl leading-relaxed">
             The morning light hits the shelves. You have {stats?.booksReading || 0} volumes awaiting your attention this week.
           </p>
         </div>
@@ -104,7 +104,7 @@ const Dashboard = () => {
                 <div className="space-y-6">
                   <h2
                     onClick={() => navigate(`/books/${featuredBook.id}`)}
-                    className="text-4xl leading-tight group-hover:text-clay transition-colors cursor-pointer"
+                    className="text-3xl md:text-4xl leading-tight group-hover:text-clay transition-colors cursor-pointer"
                   >
                     {featuredBook.title}
                   </h2>
@@ -139,8 +139,8 @@ const Dashboard = () => {
 
           <div className="mt-20 p-12 bg-paper-darker border border-ink/5 relative overflow-hidden">
             <div className="relative z-10 text-center">
-              <span className="text-[40px] font-serif italic text-ink/10 block mb-4">“</span>
-              <p className="text-2xl font-serif italic text-ink/80 mb-6">
+              <span className="text-[30px] md:text-[40px] font-serif italic text-ink/10 block mb-4">“</span>
+              <p className="text-xl md:text-2xl font-serif italic text-ink/80 mb-6">
                 A room without books is like a body without a soul.
               </p>
               <span className="text-[10px] font-sans uppercase tracking-widest text-ink/40">— Marcus Tullius Cicero</span>

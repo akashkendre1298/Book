@@ -15,11 +15,13 @@ public class AdminController : BaseApiController
 {
     private readonly AppDbContext _context;
     private readonly IBookService _bookService;
+    private readonly IAuditService _auditService;
 
-    public AdminController(AppDbContext context, IBookService bookService)
+    public AdminController(AppDbContext context, IBookService bookService, IAuditService auditService)
     {
         _context = context;
         _bookService = bookService;
+        _auditService = auditService;
     }
 
     #region Dashboard
@@ -41,9 +43,15 @@ public class AdminController : BaseApiController
 
     #region User Management
     [HttpGet("users")]
-    public async Task<IActionResult> GetAllUsers()
+    public async Task<IActionResult> GetAllUsers([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
-        var users = await _context.Users
+        var query = _context.Users;
+        var totalCount = await query.CountAsync();
+        
+        var items = await query
+            .OrderByDescending(u => u.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(u => new 
             {
                 u.Id,
@@ -54,10 +62,9 @@ public class AdminController : BaseApiController
                 u.CreatedAt,
                 TotalUploads = _context.Books.Count(b => b.UserId == u.Id)
             })
-            .OrderByDescending(u => u.CreatedAt)
             .ToListAsync();
 
-        return Ok(users);
+        return Ok(new { items, totalCount, page, pageSize });
     }
 
     [HttpPut("users/{id}/status")]
@@ -69,7 +76,7 @@ public class AdminController : BaseApiController
         user.IsActive = isActive;
         await _context.SaveChangesAsync();
 
-        await LogAction(isActive ? "UserUnblocked" : "UserBlocked", $"Target: {user.Email}");
+        await _auditService.LogAsync(isActive ? "UserUnblocked" : "UserBlocked", UserEmail, $"Target: {user.Email}");
         return Ok(new { message = $"User status updated to {(isActive ? "Active" : "Blocked")}" });
     }
 
@@ -83,18 +90,23 @@ public class AdminController : BaseApiController
         _context.Users.Remove(user);
         await _context.SaveChangesAsync();
 
-        await LogAction("UserDeleted", $"Deleted archivist: {email}");
+        await _auditService.LogAsync("UserDeleted", UserEmail, $"Deleted archivist: {email}");
         return NoContent();
     }
     #endregion
 
     #region Library Management
     [HttpGet("library")]
-    public async Task<IActionResult> GetAllBooks()
+    public async Task<IActionResult> GetAllBooks([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
-        var books = await _context.Books
+        var query = _context.Books;
+        var totalCount = await query.CountAsync();
+
+        var items = await query
             .Include(b => b.User)
             .OrderByDescending(b => b.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(b => new {
                 b.Id,
                 b.Title,
@@ -111,7 +123,8 @@ public class AdminController : BaseApiController
                 b.CreatedAt
             })
             .ToListAsync();
-        return Ok(books);
+            
+        return Ok(new { items, totalCount, page, pageSize });
     }
 
     [HttpPatch("library/{id}")]
@@ -120,7 +133,7 @@ public class AdminController : BaseApiController
         var book = await _bookService.PatchBookAsync(id, update, Guid.Empty, "Admin");
         if (book == null) return NotFound();
 
-        await LogAction("BookPatchedByAdmin", $"Title: {book.Title}");
+        await _auditService.LogAsync("BookPatchedByAdmin", UserEmail, $"Title: {book.Title}");
         return Ok(book);
     }
 
@@ -132,18 +145,18 @@ public class AdminController : BaseApiController
 
         _context.Books.Remove(book);
         await _context.SaveChangesAsync();
-        await LogAction("BookDeletedByAdmin", $"Title: {book.Title}");
+        await _auditService.LogAsync("BookDeletedByAdmin", UserEmail, $"Title: {book.Title}");
         return NoContent();
     }
     #endregion
 
     #region Recommendation Moderation
     [HttpGet("recommendations")]
-    public async Task<IActionResult> GetPendingRecommendations([FromServices] IBookService bookService)
+    public async Task<IActionResult> GetPendingRecommendations()
     {
-        var recs = await bookService.GetPendingRecommendationsAsync();
+        var recs = await _bookService.GetPendingRecommendationsAsync();
         return Ok(recs.Select(r => new {
-            r.Id, // Recommendation ID
+            r.Id,
             BookId = r.BookId,
             r.Book?.Title,
             r.Book?.Author,
@@ -155,35 +168,30 @@ public class AdminController : BaseApiController
     }
 
     [HttpPost("recommendations/{id}/approve")]
-    public async Task<IActionResult> ApproveBook(Guid id, [FromServices] IBookService bookService)
+    public async Task<IActionResult> ApproveBook(Guid id)
     {
-        var success = await bookService.HandleRecommendationAsync(id, true, "Approved by High Curator");
+        var success = await _bookService.HandleRecommendationAsync(id, true, "Approved by High Curator");
         if (!success) return NotFound();
         
-        await LogAction("RecommendationApproved", $"RecommendationID: {id}");
+        await _auditService.LogAsync("RecommendationApproved", UserEmail, $"RecommendationID: {id}");
         return Ok(new { message = "Book approved and added to Public Library." });
     }
 
     [HttpPost("recommendations/{id}/reject")]
-    public async Task<IActionResult> RejectBook(Guid id, [FromServices] IBookService bookService)
+    public async Task<IActionResult> RejectBook(Guid id)
     {
-        var success = await bookService.HandleRecommendationAsync(id, false, "Rejected by High Curator");
+        var success = await _bookService.HandleRecommendationAsync(id, false, "Rejected by High Curator");
         if (!success) return NotFound();
 
-        await LogAction("RecommendationRejected", $"RecommendationID: {id}");
+        await _auditService.LogAsync("RecommendationRejected", UserEmail, $"RecommendationID: {id}");
         return Ok(new { message = "Book rejected." });
     }
     #endregion
 
-    private async Task LogAction(string action, string details)
+    [HttpGet("audit-logs")]
+    public async Task<IActionResult> GetAuditLogs()
     {
-        var adminEmail = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "System";
-        _context.AuditLogs.Add(new AuditLog
-        {
-            Action = action,
-            PerformedBy = adminEmail,
-            Details = details
-        });
-        await _context.SaveChangesAsync();
+        var logs = await _auditService.GetLogsAsync();
+        return Ok(logs);
     }
 }
