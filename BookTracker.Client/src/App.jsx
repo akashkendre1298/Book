@@ -12,6 +12,7 @@ import ReadingGoalsPage from './pages/ReadingGoalsPage';
 import ProfilePage from './pages/ProfilePage';
 import Dashboard from './pages/Dashboard';
 import EditBookPage from './pages/EditBookPage';
+import AdminDashboard from './pages/AdminDashboard';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -27,6 +28,25 @@ const ProtectedRoute = ({ children }) => {
   
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+  
+  return children;
+};
+
+// Admin Only Route Component
+const ProtectedAdminRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-paper flex items-center justify-center">
+        <div className="font-serif italic text-2xl animate-pulse">Consulting the Grand Index...</div>
+      </div>
+    );
+  }
+  
+  if (!user || user.role !== 'Admin') {
+    return <Navigate to="/" replace />;
   }
   
   return children;
@@ -106,6 +126,16 @@ function AppRoutes() {
             </PageContainer>
           </Layout>
         </ProtectedRoute>
+      } />
+
+      <Route path="/admin" element={
+        <ProtectedAdminRoute>
+          <Layout>
+            <PageContainer>
+              <AdminDashboard />
+            </PageContainer>
+          </Layout>
+        </ProtectedAdminRoute>
       } />
       
       {/* Fallback */}

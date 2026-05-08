@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Library, LayoutDashboard, Bookmark, LogOut } from 'lucide-react';
+import { Library, LayoutDashboard, Bookmark, LogOut, ShieldCheck } from 'lucide-react';
 
 const Layout = ({ children }) => {
   const { user, logout } = useAuth();
@@ -18,9 +18,13 @@ const Layout = ({ children }) => {
   const navItems = [
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
     { name: 'Collection', path: '/collection', icon: Library },
-    { name: 'Goals', path: '/goals', icon: LayoutDashboard },
+    { name: 'Goals', path: '/goals', icon: Bookmark },
     { name: 'Profile', path: '/profile', icon: Library },
   ];
+
+  if (user?.role === 'Admin') {
+    navItems.push({ name: 'Curator Portal', path: '/admin', icon: ShieldCheck });
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
